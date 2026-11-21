@@ -353,6 +353,58 @@ body.window-resizing * {
   font-weight: 500;
 }
 
+.filter-pill.view-mode-pill {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  margin-left: auto;
+}
+
+.filter-pill.view-mode-pill:hover {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fde047;
+  border-color: rgba(245, 158, 11, 0.6);
+}
+
+.filter-pill.view-mode-pill.active {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fef08a;
+  border-color: rgba(245, 158, 11, 0.7);
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+/* Quick-Glance Flashcard Mode: High readability, bold spoken quotes, compact bullets */
+.qa-feed.flashcard-mode .teleprompter-say-card {
+  background: rgba(56, 189, 248, 0.16);
+  border: 1.5px solid rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.25);
+  padding: 12px 14px;
+}
+
+.qa-feed.flashcard-mode .say-quote {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.qa-feed.flashcard-mode .teleprompter-para {
+  display: none;
+}
+
+.qa-feed.flashcard-mode .teleprompter-section-header {
+  margin: 6px 0 3px 0;
+}
+
+.qa-feed.flashcard-mode .teleprompter-bullet-item:nth-child(n+4) {
+  display: none;
+}
+
+.qa-feed.flashcard-mode .teleprompter-callout-card {
+  display: none;
+}
+
 /* Main Q&A Feed */
 .qa-feed {
   flex: 1;

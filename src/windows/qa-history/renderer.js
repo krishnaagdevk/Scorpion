@@ -24,7 +24,9 @@ const ghostBtn = document.getElementById('ghost-btn');
 const redoBtn = document.getElementById('redo-btn');
 const exportBtn = document.getElementById('export-btn');
 const clearBtn = document.getElementById('clear-btn');
+const viewModeBtn = document.getElementById('view-mode-btn');
 let isGhostMode = false;
+let isFlashcardMode = false;
 
 function updateGhostBtnState() {
   if (!ghostBtn) return;
@@ -525,11 +527,31 @@ function exportSessionAsMarkdown() {
   showRecallToast(`Exported ${allItems.length} Q&A items to ${fileName}`);
 }
 
+function toggleViewMode() {
+  isFlashcardMode = !isFlashcardMode;
+  if (qaFeed) {
+    qaFeed.classList.toggle('flashcard-mode', isFlashcardMode);
+  }
+  if (viewModeBtn) {
+    viewModeBtn.classList.toggle('active', isFlashcardMode);
+    viewModeBtn.textContent = isFlashcardMode ? '📋 Full Teleprompter' : '⚡ Flashcard Mode';
+    viewModeBtn.setAttribute('data-tooltip', isFlashcardMode
+      ? 'Currently in Flashcard Mode (High-speed glance reading). Click for Full Teleprompter.'
+      : 'Switch to Quick-Glance Flashcard Mode (Prominent spoken answer & top highlights)');
+  }
+}
+
 // Event Listeners
 function setupListeners() {
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
       window.qaApi?.closeQaWindow?.();
+    });
+  }
+
+  if (viewModeBtn) {
+    viewModeBtn.addEventListener('click', () => {
+      toggleViewMode();
     });
   }
 
@@ -606,7 +628,10 @@ function setupListeners() {
 
   filterPills.forEach(pill => {
     pill.addEventListener('click', () => {
-      filterPills.forEach(p => p.classList.remove('active'));
+      if (pill.id === 'view-mode-btn') return;
+      filterPills.forEach(p => {
+        if (p.id !== 'view-mode-btn') p.classList.remove('active');
+      });
       pill.classList.add('active');
       activeFilter = pill.dataset.filter || 'all';
       applyFilters();

@@ -246,8 +246,30 @@ function registerAssistantIpc({
     return windowController.dockToTop();
   });
 
-  ipcMain.handle('emergency-hide', () => {
-    return windowController.emergencyHide();
+  ipcMain.handle('emergency-hide', (_event, options) => {
+    return windowController.emergencyHide(options);
+  });
+
+  ipcMain.handle('toggle-panic-mode', (_event, options) => {
+    return windowController.emergencyHide(options);
+  });
+
+  ipcMain.handle('get-panic-mode-status', () => {
+    return {
+      success: true,
+      isPanicActive: windowController.isPanicModeActive?.() ?? false
+    };
+  });
+
+  ipcMain.handle('toggle-screen-share-shield', (_event, enabled) => {
+    return windowController.toggleScreenShareShield(enabled);
+  });
+
+  ipcMain.handle('get-screen-share-shield-status', () => {
+    return {
+      success: true,
+      screenShareShieldActive: windowController.isScreenShareShieldActive?.() ?? false
+    };
   });
 
   ipcMain.handle('take-stealth-screenshot', async () => {

@@ -112,10 +112,28 @@ test('windowController synchronizes opacity and emergency hide to companion wind
   assert.equal(mainWindowOpacity, 0.5);
   assert.equal(companionOpacity, 0.5);
 
-  // Test emergencyHide
+  // Test emergencyHide (Panic Mode)
   controller.emergencyHide();
   assert.equal(mainWindowOpacity, 0.01);
   assert.equal(companionOpacity, 0.01);
+  assert.equal(controller.isPanicModeActive(), true);
+
+  // Toggle off panic mode restores prior opacity
+  controller.emergencyHide();
+  assert.equal(controller.isPanicModeActive(), false);
+  assert.equal(mainWindowOpacity, 0.5);
+
+  // Test Screen Share Shield
+  assert.equal(controller.isScreenShareShieldActive(), false);
+  controller.toggleScreenShareShield(true);
+  assert.equal(controller.isScreenShareShieldActive(), true);
+  assert.equal(mainWindowOpacity, 0.2);
+  assert.equal(controller.isClickThroughEnabled(), true);
+
+  controller.toggleScreenShareShield(false);
+  assert.equal(controller.isScreenShareShieldActive(), false);
+  assert.equal(controller.isClickThroughEnabled(), false);
+  assert.equal(mainWindowOpacity, 0.5);
 
   // Test Click-Through (Ghost Mode)
   assert.equal(controller.isClickThroughEnabled(), false);

@@ -29,6 +29,9 @@ function createWindowController({
   let lastRecoveryReloadAt = 0;
   let activeWindowOpacityLevel = DEFAULT_WINDOW_OPACITY_LEVEL;
   let clickThroughEnabled = false;
+  let isPanicActive = false;
+  let screenShareShieldActive = false;
+  let savedOpacityBeforeShield = DEFAULT_WINDOW_OPACITY_LEVEL;
 
   const RECOVERY_RELOAD_COOLDOWN_MS = 5000;
 
@@ -79,6 +82,9 @@ function createWindowController({
   }
 
   function getCurrentWindowOpacity() {
+    if (isPanicActive) {
+      return 0.01;
+    }
     return isVisible ? getVisibleWindowOpacity() : getStealthWindowOpacity();
   }
 
@@ -293,16 +299,27 @@ function createWindowController({
     sendToRenderer('set-stealth-mode', stealthModeEnabled);
   }
 
-  function emergencyHide() {
+  function emergencyHide(options = {}) {
     if (autoHideTimer) {
       clearTimeout(autoHideTimer);
       autoHideTimer = null;
     }
 
     if (!mainWindow || mainWindow.isDestroyed()) {
-      return;
+      return { success: false, error: 'Main window not available' };
     }
 
+    // Toggle panic mode if already panicked and not forced
+    if (isPanicActive && options.force !== true) {
+      isPanicActive = false;
+      isVisible = true;
+      applyWindowOpacity();
+      sendToRenderer('set-stealth-mode', false);
+      sendToRenderer('set-panic-mode', false);
+      return { success: true, isPanicActive: false };
+    }
+
+    isPanicActive = true;
     mainWindow.setOpacity(0.01);
     const companionWindows = getCompanionWindows();
     for (const win of companionWindows) {
@@ -311,15 +328,45 @@ function createWindowController({
       } catch (err) {}
     }
     sendToRenderer('emergency-clear');
+    sendToRenderer('set-panic-mode', true);
 
-    autoHideTimer = setTimeout(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        isVisible = true;
-        applyWindowOpacity();
-        sendToRenderer('set-stealth-mode', false);
-      }
-      autoHideTimer = null;
-    }, 2000);
+    if (options.autoRestore === true) {
+      autoHideTimer = setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          isPanicActive = false;
+          isVisible = true;
+          applyWindowOpacity();
+          sendToRenderer('set-stealth-mode', false);
+          sendToRenderer('set-panic-mode', false);
+        }
+        autoHideTimer = null;
+      }, 2000);
+    }
+
+    return { success: true, isPanicActive: true };
+  }
+
+  function isPanicModeActive() {
+    return isPanicActive;
+  }
+
+  function toggleScreenShareShield(enable) {
+    const shouldEnable = typeof enable === 'boolean' ? enable : !screenShareShieldActive;
+    screenShareShieldActive = shouldEnable;
+    if (screenShareShieldActive) {
+      savedOpacityBeforeShield = activeWindowOpacityLevel;
+      setWindowOpacityLevel(2); // Level 2 = 0.20 opacity (ultra stealth)
+      setClickThrough(true);
+    } else {
+      setWindowOpacityLevel(savedOpacityBeforeShield || DEFAULT_WINDOW_OPACITY_LEVEL);
+      setClickThrough(false);
+    }
+    sendToRenderer('set-screen-share-shield', screenShareShieldActive);
+    return { success: true, screenShareShieldActive };
+  }
+
+  function isScreenShareShieldActive() {
+    return screenShareShieldActive;
   }
 
   function moveToPosition(position) {
@@ -589,6 +636,8 @@ function createWindowController({
     getWindowOpacityLevel,
     hasWindow,
     isClickThroughEnabled,
+    isPanicModeActive,
+    isScreenShareShieldActive,
     markVisible,
     registerShortcuts,
     setClickThrough,
@@ -596,6 +645,8 @@ function createWindowController({
     setWindowBounds,
     setWindowOpacityLevel,
     toggleClickThrough,
+    togglePanicMode: emergencyHide,
+    toggleScreenShareShield,
     toggleStealthMode,
     unregisterShortcuts
   };
