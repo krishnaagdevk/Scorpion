@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { createQaHistoryWindow } = require('../../../windows/qa-history/window');
 
-function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity }) {
+function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity, getInitialClickThrough }) {
   let qaWindow = null;
   let qaHistory = [];
   const historyPath = path.join(process.cwd(), 'cache', 'qa-history.json');
@@ -51,11 +51,13 @@ function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity }) 
 
     const appEnv = typeof getAppEnvironment === 'function' ? getAppEnvironment() : {};
     const initialOpacity = typeof getInitialOpacity === 'function' ? getInitialOpacity() : 1;
+    const initialClickThrough = typeof getInitialClickThrough === 'function' ? getInitialClickThrough() : false;
     qaWindow = createQaHistoryWindow({
       app,
       screen,
       hideFromScreenCapture: true,
       initialOpacity,
+      initialClickThrough,
       onClosed: () => {
         qaWindow = null;
       }
@@ -66,7 +68,13 @@ function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity }) 
 
   function closeQaWindow() {
     if (qaWindow && !qaWindow.isDestroyed()) {
-      qaWindow.close();
+      try {
+        qaWindow.destroy();
+      } catch (err) {
+        try {
+          qaWindow.close();
+        } catch (closeErr) {}
+      }
       qaWindow = null;
     }
   }
@@ -184,6 +192,11 @@ function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity }) 
   }
 
   function registerIpc(ipcMain) {
+    ipcMain.handle('close-qa-window', () => {
+      closeQaWindow();
+      return { success: true, isOpen: false };
+    });
+
     ipcMain.handle('toggle-qa-window', (_event, forceState) => {
       const win = toggleQaWindow(forceState);
       return { success: true, isOpen: Boolean(win) };

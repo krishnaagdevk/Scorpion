@@ -20,7 +20,6 @@ const countVoice = document.getElementById('count-voice');
 const statsSummary = document.getElementById('stats-summary');
 const closeBtn = document.getElementById('close-btn');
 const pinBtn = document.getElementById('pin-btn');
-const ghostBtn = document.getElementById('ghost-btn');
 const redoBtn = document.getElementById('redo-btn');
 const exportBtn = document.getElementById('export-btn');
 const clearBtn = document.getElementById('clear-btn');
@@ -28,14 +27,11 @@ const viewModeBtn = document.getElementById('view-mode-btn');
 let isGhostMode = false;
 let isFlashcardMode = false;
 
-function updateGhostBtnState() {
-  if (!ghostBtn) return;
-  ghostBtn.classList.toggle('active', isGhostMode);
-  ghostBtn.setAttribute('aria-pressed', isGhostMode ? 'true' : 'false');
-  ghostBtn.setAttribute('data-tooltip', isGhostMode
-    ? 'Ghost Mode Active (Alt+Shift+P): Clicks pass directly to VS Code / Notepad'
-    : 'Ghost Mode (Alt+Shift+P): Click & type directly in VS Code / Notepad through this window');
-  ghostBtn.removeAttribute('title');
+function updateGhostState() {
+  const container = document.querySelector('.qa-container');
+  if (container) {
+    container.classList.toggle('ghost-mode-active', isGhostMode);
+  }
 }
 const recallToast = document.getElementById('recall-toast');
 const recallToastMsg = document.getElementById('recall-toast-msg');
@@ -544,7 +540,9 @@ function toggleViewMode() {
 // Event Listeners
 function setupListeners() {
   if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       window.qaApi?.closeQaWindow?.();
     });
   }
@@ -567,16 +565,6 @@ function setupListeners() {
       pinBtn.classList.toggle('active', isAlwaysOnTop);
       pinBtn.setAttribute('aria-pressed', isAlwaysOnTop ? 'true' : 'false');
       window.qaApi?.toggleAlwaysOnTop?.(isAlwaysOnTop);
-    });
-  }
-
-  if (ghostBtn) {
-    ghostBtn.addEventListener('click', async () => {
-      const res = await window.qaApi?.toggleClickThrough?.();
-      if (typeof res?.clickThroughEnabled === 'boolean') {
-        isGhostMode = res.clickThroughEnabled;
-        updateGhostBtnState();
-      }
     });
   }
 
@@ -1086,14 +1074,14 @@ async function init() {
   if (window.qaApi?.onClickThroughModeChanged) {
     window.qaApi.onClickThroughModeChanged((enabled) => {
       isGhostMode = Boolean(enabled);
-      updateGhostBtnState();
+      updateGhostState();
     });
   }
   if (window.qaApi?.getClickThroughStatus) {
     window.qaApi.getClickThroughStatus().then((res) => {
       if (res && typeof res.clickThroughEnabled === 'boolean') {
         isGhostMode = res.clickThroughEnabled;
-        updateGhostBtnState();
+        updateGhostState();
       }
     }).catch(() => {});
   }

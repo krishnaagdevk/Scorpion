@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('qaApi', {
   clearQaHistory: () => ipcRenderer.invoke('clear-qa-history'),
   deleteQaItem: (id) => ipcRenderer.invoke('delete-qa-item', id),
   restoreQaItems: (items) => ipcRenderer.invoke('restore-qa-items', items),
-  closeQaWindow: () => ipcRenderer.invoke('toggle-qa-window', false),
+  closeQaWindow: () => ipcRenderer.invoke('close-qa-window'),
   toggleAlwaysOnTop: (enabled) => ipcRenderer.invoke('qa-window-toggle-pin', enabled),
   moveWindowBy: (deltaX, deltaY) => ipcRenderer.invoke('move-window-by', { deltaX, deltaY }),
   resizeWindowBy: (params) => ipcRenderer.invoke('resize-window-by', params),

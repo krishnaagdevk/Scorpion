@@ -106,7 +106,8 @@ async function startApplication() {
     app,
     screen,
     getAppEnvironment: () => appEnvironment,
-    getInitialOpacity: () => (windowController ? windowController.getCurrentWindowOpacity() : 1)
+    getInitialOpacity: () => (windowController ? windowController.getCurrentWindowOpacity() : 1),
+    getInitialClickThrough: () => (windowController ? windowController.isClickThroughEnabled() : false)
   });
 
   windowController = createWindowController({

@@ -587,6 +587,16 @@ function createWindowController({
       toggleClickThrough();
     });
 
+    // Also register alternative aliases (Control+Alt+P / CommandOrControl+Alt+P) for ghost mode
+    const ghostAliases = ['Control+Alt+P', 'CommandOrControl+Alt+P'];
+    for (const alias of ghostAliases) {
+      try {
+        globalShortcut.register(alias, () => {
+          toggleClickThrough();
+        });
+      } catch (err) {}
+    }
+
     registerShortcut('dockToTop', () => {
       dockToTop();
     });
