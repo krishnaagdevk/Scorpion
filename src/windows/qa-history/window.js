@@ -30,7 +30,7 @@ function createQaHistoryWindow({
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
-    resizable: true,
+    resizable: false,
     minimizable: false,
     maximizable: false,
     closable: false,

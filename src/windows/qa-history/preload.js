@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('qaApi', {
   closeQaWindow: () => ipcRenderer.invoke('toggle-qa-window', false),
   toggleAlwaysOnTop: (enabled) => ipcRenderer.invoke('qa-window-toggle-pin', enabled),
   moveWindowBy: (deltaX, deltaY) => ipcRenderer.invoke('move-window-by', { deltaX, deltaY }),
+  resizeWindowBy: (params) => ipcRenderer.invoke('resize-window-by', params),
   toggleClickThrough: (enabled) => ipcRenderer.invoke('toggle-click-through', enabled),
   getClickThroughStatus: () => ipcRenderer.invoke('get-click-through-status'),
   onClickThroughModeChanged: (callback) => {

@@ -185,6 +185,40 @@ function registerAssistantIpc({
     return { success: false };
   });
 
+  ipcMain.handle('resize-window-by', (event, { direction = 'se', deltaX = 0, deltaY = 0, minWidth = 360, minHeight = 240 } = {}) => {
+    const { BrowserWindow } = require('electron');
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) {
+      return { success: false };
+    }
+
+    const bounds = win.getBounds();
+    let { x, y, width, height } = bounds;
+    const dx = Math.round(Number(deltaX) || 0);
+    const dy = Math.round(Number(deltaY) || 0);
+    const dir = String(direction || 'se').toLowerCase();
+
+    if (dir.includes('e')) {
+      width = Math.max(minWidth, bounds.width + dx);
+    }
+    if (dir.includes('s')) {
+      height = Math.max(minHeight, bounds.height + dy);
+    }
+    if (dir.includes('w')) {
+      const nextWidth = Math.max(minWidth, bounds.width - dx);
+      x = bounds.x + (bounds.width - nextWidth);
+      width = nextWidth;
+    }
+    if (dir.includes('n')) {
+      const nextHeight = Math.max(minHeight, bounds.height - dy);
+      y = bounds.y + (bounds.height - nextHeight);
+      height = nextHeight;
+    }
+
+    win.setBounds({ x, y, width, height }, false);
+    return { success: true, bounds: win.getBounds() };
+  });
+
   ipcMain.handle('set-window-size-preset', (_event, payload = {}) => {
     const preset = typeof payload === 'number' ? payload : payload?.preset;
     return windowController.setWindowSizePreset(preset);

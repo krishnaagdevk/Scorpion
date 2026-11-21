@@ -74,6 +74,12 @@ function createInvokeActions(ipcRenderer) {
       fallback: (error) => ({ error: error.message })
     }),
 
+    resizeWindowBy: invokeWithFallback(ipcRenderer, {
+      channel: 'resize-window-by',
+      label: 'resizeWindowBy',
+      fallback: (error) => ({ success: false, error: error.message })
+    }),
+
     setWindowBounds: invokeWithFallback(ipcRenderer, {
       channel: 'set-window-bounds',
       label: 'setWindowBounds',

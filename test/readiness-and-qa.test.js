@@ -136,3 +136,52 @@ test('windowController synchronizes opacity and emergency hide to companion wind
   assert.equal(dockRes.x, Math.floor((1920 - 800) / 2));
   assert.equal(mainWindowPos.y, 16);
 });
+
+test('stealth window resize calculation enforces minimum bounds and direction vectors', () => {
+  function calculateResize(bounds, direction, deltaX, deltaY, minWidth = 360, minHeight = 240) {
+    let { x, y, width, height } = bounds;
+    const dx = Math.round(Number(deltaX) || 0);
+    const dy = Math.round(Number(deltaY) || 0);
+    const dir = String(direction || 'se').toLowerCase();
+
+    if (dir.includes('e')) {
+      width = Math.max(minWidth, bounds.width + dx);
+    }
+    if (dir.includes('s')) {
+      height = Math.max(minHeight, bounds.height + dy);
+    }
+    if (dir.includes('w')) {
+      const nextWidth = Math.max(minWidth, bounds.width - dx);
+      x = bounds.x + (bounds.width - nextWidth);
+      width = nextWidth;
+    }
+    if (dir.includes('n')) {
+      const nextHeight = Math.max(minHeight, bounds.height - dy);
+      y = bounds.y + (bounds.height - nextHeight);
+      height = nextHeight;
+    }
+
+    return { x, y, width, height };
+  }
+
+  const initial = { x: 100, y: 100, width: 500, height: 400 };
+
+  // Resize southeast (expand width +50, height +60)
+  const seRes = calculateResize(initial, 'se', 50, 60);
+  assert.equal(seRes.width, 550);
+  assert.equal(seRes.height, 460);
+  assert.equal(seRes.x, 100);
+  assert.equal(seRes.y, 100);
+
+  // Resize northwest (expand leftwards & upwards)
+  const nwRes = calculateResize(initial, 'nw', -40, -30);
+  assert.equal(nwRes.width, 540);
+  assert.equal(nwRes.height, 430);
+  assert.equal(nwRes.x, 60);
+  assert.equal(nwRes.y, 70);
+
+  // Enforces minimum dimensions
+  const clamped = calculateResize(initial, 'se', -400, -300, 360, 240);
+  assert.equal(clamped.width, 360);
+  assert.equal(clamped.height, 240);
+});

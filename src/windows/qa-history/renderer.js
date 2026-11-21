@@ -742,9 +742,93 @@ function setupStealthWindowDrag() {
   });
 }
 
+function setupStealthWindowResize() {
+  const handles = document.querySelectorAll('.window-resize-handle');
+  if (!handles.length || !window.qaApi?.resizeWindowBy) return;
+
+  handles.forEach((handle) => {
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const direction = handle.dataset.resizeHandle || 'se';
+      const pointerId = e.pointerId;
+      let lastScreenX = e.screenX;
+      let lastScreenY = e.screenY;
+      let isResizing = true;
+      let accumulatedDx = 0;
+      let accumulatedDy = 0;
+      let resizeRaf = null;
+
+      document.body.classList.add('window-resizing');
+      handle.setPointerCapture?.(pointerId);
+
+      const onPointerMove = (moveEvt) => {
+        if (!isResizing) return;
+        const dx = moveEvt.screenX - lastScreenX;
+        const dy = moveEvt.screenY - lastScreenY;
+        lastScreenX = moveEvt.screenX;
+        lastScreenY = moveEvt.screenY;
+
+        accumulatedDx += dx;
+        accumulatedDy += dy;
+
+        if (!resizeRaf) {
+          resizeRaf = window.requestAnimationFrame(() => {
+            resizeRaf = null;
+            if (accumulatedDx !== 0 || accumulatedDy !== 0) {
+              const sendDx = accumulatedDx;
+              const sendDy = accumulatedDy;
+              accumulatedDx = 0;
+              accumulatedDy = 0;
+              window.qaApi.resizeWindowBy({
+                direction,
+                deltaX: sendDx,
+                deltaY: sendDy,
+                minWidth: 420,
+                minHeight: 320
+              });
+            }
+          });
+        }
+      };
+
+      const onPointerUp = (upEvt) => {
+        isResizing = false;
+        document.body.classList.remove('window-resizing');
+        handle.releasePointerCapture?.(upEvt.pointerId);
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerUp);
+        if (resizeRaf) {
+          window.cancelAnimationFrame(resizeRaf);
+          resizeRaf = null;
+        }
+        if (accumulatedDx !== 0 || accumulatedDy !== 0) {
+          window.qaApi.resizeWindowBy({
+            direction,
+            deltaX: accumulatedDx,
+            deltaY: accumulatedDy,
+            minWidth: 420,
+            minHeight: 320
+          });
+          accumulatedDx = 0;
+          accumulatedDy = 0;
+        }
+      };
+
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+      document.addEventListener('pointercancel', onPointerUp);
+    });
+  });
+}
+
 async function init() {
   setupListeners();
   setupStealthWindowDrag();
+  setupStealthWindowResize();
   if (window.qaApi?.onClickThroughModeChanged) {
     window.qaApi.onClickThroughModeChanged((enabled) => {
       isGhostMode = Boolean(enabled);
