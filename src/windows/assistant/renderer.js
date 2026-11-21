@@ -406,8 +406,8 @@ function handleAutoCopilotTranscript({ source, text }) {
 // Timer
 let startTime = Date.now();
 let timerInterval;
-const MIN_WINDOW_WIDTH = 600;
-const MIN_WINDOW_HEIGHT = 380;
+const MIN_WINDOW_WIDTH = 480;
+const MIN_WINDOW_HEIGHT = 70;
 const MAX_CHAT_INPUT_HEIGHT = 88;
 
 let isCloseConfirmationOpen = false;

@@ -196,40 +196,23 @@ body {
   transform: scale(0.95);
 }
 
-/* WINDOW RESIZE HANDLES */
+/* WINDOW RESIZE HANDLES - SIDES, BOTTOM AND CORNERS (TOP PROTECTED FOR DRAG) */
 .window-resize-handle {
   position: absolute;
-  z-index: 25;
+  z-index: 30;
   -webkit-app-region: no-drag;
   pointer-events: auto;
   cursor: default !important;
   background: transparent !important;
 }
 
-.resize-handle-n,
-.resize-handle-s {
-  left: 16px;
-  right: 16px;
-  height: 8px;
-  cursor: default !important;
-  background: transparent !important;
-}
-
 .resize-handle-e,
 .resize-handle-w {
-  top: 16px;
-  bottom: 16px;
-  width: 8px;
+  top: 42px;
+  bottom: 12px;
+  width: 6px;
   cursor: default !important;
   background: transparent !important;
-}
-
-.resize-handle-n {
-  top: 0;
-}
-
-.resize-handle-s {
-  bottom: 0;
 }
 
 .resize-handle-e {
@@ -240,75 +223,64 @@ body {
   left: 0;
 }
 
-.resize-handle-ne,
-.resize-handle-se,
-.resize-handle-sw,
-.resize-handle-nw {
-  width: 18px;
-  height: 18px;
+.resize-handle-s {
+  bottom: 0;
+  left: 14px;
+  right: 14px;
+  height: 6px;
   cursor: default !important;
   background: transparent !important;
 }
 
-.resize-handle-ne {
-  top: 0;
-  right: 0;
+.resize-handle-se,
+.resize-handle-sw {
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  z-index: 35;
+  cursor: default !important;
   background: transparent !important;
-  border-radius: 0 12px 0 0;
 }
 
 .resize-handle-se {
   right: 0;
-  bottom: 0;
-  background: transparent !important;
   border-radius: 0 0 12px 0;
 }
 
 .resize-handle-sw {
   left: 0;
-  bottom: 0;
-  background: transparent !important;
   border-radius: 0 0 0 12px;
 }
 
-.resize-handle-nw {
-  top: 0;
-  left: 0;
-  background: transparent !important;
-  border-radius: 12px 0 0 0;
-}
-
-.glass-container:hover .resize-handle-ne,
 .glass-container:hover .resize-handle-se,
-.glass-container:hover .resize-handle-sw,
-.glass-container:hover .resize-handle-nw {
+.glass-container:hover .resize-handle-sw {
   filter: none !important;
 }
 
-.resize-handle-ne:hover,
 .resize-handle-se:hover,
-.resize-handle-sw:hover,
-.resize-handle-nw:hover {
+.resize-handle-sw:hover {
   background: transparent !important;
   filter: none !important;
 }
 
-/* COMPACT LAYOUT - HORIZONTAL */
+/* COMPACT TWO-ROW LAYOUT - STATUS/GHOST ROW 1 & ACTIONS ROW 2 */
 .main-interface {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
   flex-shrink: 0;
-  padding: 2px 4px 0 4px;
+  padding: 2px 4px 4px 4px;
   margin-top: 0;
-  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
   min-width: 0;
 }
 
-/* COMPACT STATUS */
+/* ROW 1: STATUS & GHOST MODE BAR */
 .status-section {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
@@ -316,6 +288,15 @@ body {
   border-radius: 8px;
   border: 1px solid var(--glass-control-border);
   backdrop-filter: blur(20px);
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.status-section::-webkit-scrollbar {
+  display: none;
 }
 
 .status-dot {
@@ -617,13 +598,20 @@ body {
   50% { opacity: 0.5; transform: scale(1.2); }
 }
 
-/* COMPACT CONTENT */
+/* ROW 2: ACTION TOOLBAR (SCREEN AI, SUGGEST, NOTES, ASK AI, AUDIO, CLEAR) */
 .content-section {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -663,12 +651,17 @@ body {
 /* COMPACT ACTION BUTTONS */
 .action-buttons {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   align-items: center;
   flex: 1;
   min-width: 0;
-  flex-wrap: wrap;
-  overflow: hidden;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.action-buttons::-webkit-scrollbar {
+  display: none;
 }
 
 .utility-buttons {
@@ -921,18 +914,6 @@ body {
 
 .theme-toggle-btn.is-dark .theme-toggle-icon-sun {
   display: block;
-}
-
-.action-btn.hide-btn {
-  background: rgba(239, 68, 68, 0.18);
-  border-color: rgba(239, 68, 68, 0.38);
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.action-btn.hide-btn:hover {
-  background: rgba(239, 68, 68, 0.38);
-  border-color: rgba(239, 68, 68, 0.65);
-  color: #fff;
 }
 
 @keyframes voicePulse {

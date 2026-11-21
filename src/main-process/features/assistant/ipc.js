@@ -185,7 +185,7 @@ function registerAssistantIpc({
     return { success: false };
   });
 
-  ipcMain.handle('resize-window-by', (event, { direction = 'se', deltaX = 0, deltaY = 0, minWidth = 360, minHeight = 240 } = {}) => {
+  ipcMain.handle('resize-window-by', (event, { direction = 'se', deltaX = 0, deltaY = 0, minWidth = 480, minHeight = 70 } = {}) => {
     const { BrowserWindow } = require('electron');
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) {

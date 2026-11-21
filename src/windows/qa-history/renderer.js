@@ -674,9 +674,12 @@ function setupListeners() {
   }
 }
 
+let isWindowDragging = false;
+let isWindowResizing = false;
+
 function setupStealthWindowDrag() {
-  const titlebar = document.querySelector('.qa-titlebar');
-  if (!titlebar || !window.qaApi?.moveWindowBy) return;
+  const container = document.querySelector('.qa-container') || document.querySelector('.qa-titlebar');
+  if (!container || !window.qaApi?.moveWindowBy) return;
 
   let isDragging = false;
   let lastScreenX = 0;
@@ -685,20 +688,22 @@ function setupStealthWindowDrag() {
   let accumulatedDeltaY = 0;
   let moveRaf = null;
 
-  titlebar.addEventListener('pointerdown', (e) => {
+  container.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    if (e.target.closest('button, input, select, textarea, a, [role="button"]')) return;
+    if (isWindowResizing) return;
+    if (e.target.closest('button, input, select, textarea, a, [role="button"], .window-resize-handle, .qa-action-btn, .qa-btn, .action-btn, .filter-chip, .qa-history-item, code, pre')) return;
 
     e.preventDefault();
     isDragging = true;
+    isWindowDragging = true;
     lastScreenX = e.screenX;
     lastScreenY = e.screenY;
     accumulatedDeltaX = 0;
     accumulatedDeltaY = 0;
-    titlebar.setPointerCapture?.(e.pointerId);
+    container.setPointerCapture?.(e.pointerId);
 
     const onPointerMove = (moveEvt) => {
-      if (!isDragging) return;
+      if (!isDragging || isWindowResizing) return;
       const dx = moveEvt.screenX - lastScreenX;
       const dy = moveEvt.screenY - lastScreenY;
       lastScreenX = moveEvt.screenX;
@@ -723,7 +728,8 @@ function setupStealthWindowDrag() {
 
     const onPointerUp = (upEvt) => {
       isDragging = false;
-      titlebar.releasePointerCapture?.(upEvt.pointerId);
+      isWindowDragging = false;
+      container.releasePointerCapture?.(upEvt.pointerId);
       document.removeEventListener('pointermove', onPointerMove);
       document.removeEventListener('pointerup', onPointerUp);
       document.removeEventListener('pointercancel', onPointerUp);
@@ -751,6 +757,7 @@ function setupStealthWindowResize() {
   handles.forEach((handle) => {
     handle.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
+      if (isWindowDragging) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -759,6 +766,7 @@ function setupStealthWindowResize() {
       let lastScreenX = e.screenX;
       let lastScreenY = e.screenY;
       let isResizing = true;
+      isWindowResizing = true;
       let accumulatedDx = 0;
       let accumulatedDy = 0;
       let resizeRaf = null;
@@ -767,7 +775,7 @@ function setupStealthWindowResize() {
       handle.setPointerCapture?.(pointerId);
 
       const onPointerMove = (moveEvt) => {
-        if (!isResizing) return;
+        if (!isResizing || isWindowDragging) return;
         const dx = moveEvt.screenX - lastScreenX;
         const dy = moveEvt.screenY - lastScreenY;
         lastScreenX = moveEvt.screenX;
@@ -784,13 +792,15 @@ function setupStealthWindowResize() {
               const sendDy = accumulatedDy;
               accumulatedDx = 0;
               accumulatedDy = 0;
-              window.qaApi.resizeWindowBy({
-                direction,
-                deltaX: sendDx,
-                deltaY: sendDy,
-                minWidth: 420,
-                minHeight: 320
-              });
+              if (Math.abs(sendDx) >= 2 || Math.abs(sendDy) >= 2) {
+                window.qaApi.resizeWindowBy({
+                  direction,
+                  deltaX: sendDx,
+                  deltaY: sendDy,
+                  minWidth: 420,
+                  minHeight: 280
+                });
+              }
             }
           });
         }
@@ -798,6 +808,7 @@ function setupStealthWindowResize() {
 
       const onPointerUp = (upEvt) => {
         isResizing = false;
+        isWindowResizing = false;
         document.body.classList.remove('window-resizing');
         handle.releasePointerCapture?.(upEvt.pointerId);
         document.removeEventListener('pointermove', onPointerMove);

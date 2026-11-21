@@ -7,6 +7,7 @@ export function createWindowAdjustmentManager({
     onViewportResize
 }) {
     let activeWindowResize = null;
+    let isWindowDragging = false;
     let pendingWindowBounds = null;
     let windowResizeFrame = null;
 
@@ -21,8 +22,12 @@ export function createWindowAdjustmentManager({
     }
 
     function setupStealthWindowDrag() {
-        const handle = dragHandle || document.querySelector('.drag-handle');
-        if (!handle || !window.electronAPI?.moveWindowBy) {
+        if (!window.electronAPI?.moveWindowBy) {
+            return;
+        }
+
+        const dragRoot = document.getElementById('app') || document.querySelector('.glass-container');
+        if (!dragRoot) {
             return;
         }
 
@@ -33,20 +38,28 @@ export function createWindowAdjustmentManager({
         let accumulatedDeltaY = 0;
         let moveRaf = null;
 
-        handle.addEventListener('pointerdown', (e) => {
+        const onPointerDown = (e) => {
             if (e.button !== 0) return;
-            if (e.target.closest('button, input, select, textarea, a, [role="button"]')) return;
+            // Prevent drag if window resize is active
+            if (activeWindowResize) return;
+
+            // Never drag when clicking interactive controls or the resize handle
+            if (e.target.closest('button, input, select, textarea, a, [role="button"], .window-resize-handle, .pin-app-btn, .close-app-btn, .mobile-server-pill, .auto-copilot-pill, .oa-mode-pill, .pill, .filter-pill, .source-toggle, .ai-include-toggle, .action-btn, .chat-manual-input, .settings-panel, .settings-range, .chat-message-text, .code-block-wrapper, pre, code')) {
+                return;
+            }
 
             e.preventDefault();
             isDragging = true;
+            isWindowDragging = true;
             lastScreenX = e.screenX;
             lastScreenY = e.screenY;
             accumulatedDeltaX = 0;
             accumulatedDeltaY = 0;
-            handle.setPointerCapture?.(e.pointerId);
+
+            dragRoot.setPointerCapture?.(e.pointerId);
 
             const onPointerMove = (moveEvt) => {
-                if (!isDragging) return;
+                if (!isDragging || activeWindowResize) return;
                 const dx = moveEvt.screenX - lastScreenX;
                 const dy = moveEvt.screenY - lastScreenY;
                 lastScreenX = moveEvt.screenX;
@@ -71,7 +84,8 @@ export function createWindowAdjustmentManager({
 
             const onPointerUp = (upEvt) => {
                 isDragging = false;
-                handle.releasePointerCapture?.(upEvt.pointerId);
+                isWindowDragging = false;
+                dragRoot.releasePointerCapture?.(upEvt.pointerId);
                 document.removeEventListener('pointermove', onPointerMove);
                 document.removeEventListener('pointerup', onPointerUp);
                 document.removeEventListener('pointercancel', onPointerUp);
@@ -89,7 +103,9 @@ export function createWindowAdjustmentManager({
             document.addEventListener('pointermove', onPointerMove);
             document.addEventListener('pointerup', onPointerUp);
             document.addEventListener('pointercancel', onPointerUp);
-        });
+        };
+
+        dragRoot.addEventListener('pointerdown', onPointerDown);
     }
 
     function enforceChatFillLayout() {
@@ -113,6 +129,11 @@ export function createWindowAdjustmentManager({
 
     async function startWindowResize(event) {
         if (!window.electronAPI?.getWindowBounds || !window.electronAPI?.setWindowBounds) {
+            return;
+        }
+
+        // Never start resize if window drag is actively moving the window
+        if (isWindowDragging) {
             return;
         }
 
@@ -160,6 +181,12 @@ export function createWindowAdjustmentManager({
 
         const deltaX = event.screenX - activeWindowResize.startScreenX;
         const deltaY = event.screenY - activeWindowResize.startScreenY;
+
+        // Prevent accidental micro-jitter from changing window bounds
+        if (Math.abs(deltaX) < 2 && Math.abs(deltaY) < 2) {
+            return;
+        }
+
         const nextBounds = calculateWindowResizeBounds(
             activeWindowResize.startBounds,
             activeWindowResize.direction,
