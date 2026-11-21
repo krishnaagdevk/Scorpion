@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to **OpenCluely**! OpenCluely is an open-source, stealth desktop copilot for technical interviews and live meetings. We welcome all contributions—from bug fixes and documentation improvements to new AI providers and architectural enhancements.
 
----
+--- 
 
 ## 🌟 How You Can Contribute
 

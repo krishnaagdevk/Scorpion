@@ -478,7 +478,7 @@ body.window-resizing * {
 }
 
 .card-tag {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
@@ -681,7 +681,7 @@ body.window-resizing * {
 }
 
 .model-name-chip {
-  font-size: 9.5px;
+  font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   background: rgba(56, 189, 248, 0.1);
   color: #38bdf8;
@@ -722,7 +722,7 @@ body.window-resizing * {
 
 .say-badge {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 10px;
   padding: 1px 5px;
   border-radius: 4px;
   background: rgba(245, 158, 11, 0.25);
@@ -824,7 +824,7 @@ body.window-resizing * {
 }
 
 .code-lang-pill {
-  font-size: 9.5px;
+  font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 600;
   color: #38bdf8;
@@ -962,6 +962,13 @@ body.window-resizing * {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }
+
+.streaming-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #38bdf8;
   animation: pulseDot 1.4s infinite ease-in-out both;
 }
 
@@ -999,3 +1006,15 @@ body.window-resizing * {
   background: #10b981;
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

@@ -826,6 +826,11 @@ function setupStealthWindowResize() {
 }
 
 async function init() {
+  const modelBadgeEl = document.getElementById('model-badge-label');
+  if (modelBadgeEl) {
+    const activeModel = localStorage.getItem('gemini-model') || localStorage.getItem('antigravity-model') || 'gemini-3.8-flash-low';
+    modelBadgeEl.textContent = activeModel;
+  }
   setupListeners();
   setupStealthWindowDrag();
   setupStealthWindowResize();

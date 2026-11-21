@@ -24,11 +24,6 @@ button:hover,
 button:active,
 button:focus,
 button:disabled,
-a,
-a:hover,
-input,
-select,
-textarea,
 [role="button"],
 .drag-handle,
 .window-resize-handle,
@@ -43,6 +38,22 @@ textarea,
 .pill,
 .modal,
 .tab {
+  cursor: default !important;
+}
+
+/* Universal stealth pointer cursor - never show hand pointer or I-beam text cursor to avoid screen-share giveaways */
+input,
+textarea {
+  cursor: default !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+select {
+  cursor: default !important;
+}
+
+a {
   cursor: default !important;
 }
 
@@ -171,7 +182,7 @@ body {
   transition: all 0.2s ease;
   padding: 0;
   margin: 0;
-  margin-right: 10px;
+  margin-right: 6px;
   opacity: 0.6;
 }
 
@@ -287,10 +298,12 @@ body {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
-  padding: 30px 0 0 0;
-  margin-top: -22px;
+  padding: 2px 4px 0 4px;
+  margin-top: 0;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 /* COMPACT STATUS */
@@ -310,7 +323,7 @@ body {
   height: 6px;
   background: #00ff88;
   border-radius: 50%;
-  animation: pulse 2s infinite;
+  animation: statusDotPulse 2s infinite;
 }
 
 .timer {
@@ -420,7 +433,7 @@ body {
 }
 
 .auto-copilot-pill.evaluating svg {
-  animation: pulse 1s infinite;
+  animation: statusDotPulse 1s infinite;
   color: #fbbf24;
 }
 
@@ -474,7 +487,7 @@ body {
 }
 
 .oa-mode-pill.evaluating svg {
-  animation: pulse 1s infinite;
+  animation: statusDotPulse 1s infinite;
   color: #fbbf24;
 }
 
@@ -599,7 +612,7 @@ body {
   letter-spacing: 0.1px;
 }
 
-@keyframes pulse {
+@keyframes statusDotPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(1.2); }
 }
@@ -653,7 +666,9 @@ body {
   gap: 4px;
   align-items: center;
   flex: 1;
-  min-width: max-content;
+  min-width: 0;
+  flex-wrap: wrap;
+  overflow: hidden;
 }
 
 .utility-buttons {
@@ -661,7 +676,7 @@ body {
   align-items: center;
   gap: 4px;
   margin-left: auto;
-  margin-right: 28px;
+  margin-right: 4px;
   padding-right: 2px;
   flex-shrink: 0;
 }
@@ -983,9 +998,9 @@ body {
 }
 
 .monitor-source-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .monitor-source-row {
@@ -1001,14 +1016,14 @@ body {
 }
 
 .monitor-source-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.85);
 }
 
 .monitor-status-badge {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-align: center;
   padding: 2px 6px;
@@ -1035,7 +1050,7 @@ body {
 
 .monitor-live-text {
   min-width: 0;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.2;
   color: rgba(255, 255, 255, 0.8);
   overflow: hidden;
@@ -1053,7 +1068,7 @@ body {
 }
 
 .monitor-log-entry {
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.2;
   padding: 1px 5px;
   border-radius: 3px;
@@ -1071,7 +1086,7 @@ body {
 .chat-container {
   --chat-composer-height: 38px;
   flex: 1 1 0;
-  min-height: 200px;
+  min-height: 80px;
   display: flex;
   flex-direction: column;
   background: var(--glass-panel-bg);
@@ -1282,10 +1297,10 @@ body.chat-resizing * {
   background: rgba(34, 197, 94, 0.05);
   border-left: 3px solid rgba(34, 197, 94, 0.8);
   opacity: 0.9;
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: streamingPulse 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
+@keyframes streamingPulse {
   0%, 100% {
     opacity: 0.9;
   }
@@ -1295,7 +1310,7 @@ body.chat-resizing * {
 }
 
 .partial-indicator {
-  font-size: 9px;
+  font-size: 10px;
   color: rgba(34, 197, 94, 0.9);
   font-weight: 600;
   padding: 2px 6px;
@@ -1325,14 +1340,14 @@ body.chat-resizing * {
 }
 
 .message-time {
-  font-size: 9px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.6);
   font-family: 'SF Mono', Monaco, Consolas, monospace;
   margin-left: 2px;
 }
 
 .message-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1362,7 +1377,7 @@ body.chat-resizing * {
   color: rgba(255, 255, 255, 0.9);
   border-radius: 999px;
   padding: 1px 6px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1.2;
   cursor: default !important;
@@ -1424,7 +1439,7 @@ body.chat-resizing * {
   margin-bottom: 3px;
   padding: 1px 5px;
   border-radius: 5px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: rgba(190, 24, 93, 0.85);
   background: rgba(244, 63, 94, 0.12);
@@ -1459,11 +1474,12 @@ body.chat-resizing * {
 /* COMPACT RESULTS PANEL - LEGACY */
 .results-panel {
   position: absolute;
-  top: 130px;
-  left: 0;
-  right: 0;
-  width: 400px;
-  max-height: 300px;
+  top: 60px;
+  left: 8px;
+  right: 8px;
+  width: auto;
+  max-width: 100%;
+  max-height: min(300px, 60vh);
   background: var(--glass-panel-bg);
   backdrop-filter: blur(40px) saturate(1.8);
   border: 1px solid var(--glass-panel-border);
@@ -1736,18 +1752,19 @@ body.chat-resizing * {
 .stealth-mode .glass-container {
   background: rgba(20, 25, 35, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  opacity: 0.7;
-  transition: all 0.5s ease;
-}
-
-.stealth-mode * {
-  opacity: 0.8 !important;
+  opacity: 0.75;
   transition: opacity 0.5s ease;
 }
 
-.stealth-mode:hover * {
+.stealth-mode .pinned,
+.stealth-mode .auto-copilot-pill.active,
+.stealth-mode .oa-mode-pill.active,
+.stealth-mode .qa-window-pill.active,
+.stealth-mode .click-through-pill.active,
+.stealth-mode .source-toggle.selected,
+.stealth-mode .action-btn.listening,
+.stealth-mode .action-btn.active {
   opacity: 1 !important;
-  transition: opacity 0.2s ease;
 }
 
 /* STATUS STYLES */
@@ -1791,12 +1808,10 @@ body.chat-resizing * {
   from { 
     opacity: 0; 
     transform: scale(0.95) translateY(-10px);
-    backdrop-filter: blur(0px);
   }
   to { 
     opacity: 1; 
     transform: scale(1) translateY(0);
-    backdrop-filter: blur(40px);
   }
 }
 
@@ -2186,7 +2201,7 @@ select.settings-input option {
 }
 
 .settings-shortcut-description {
-  font-size: 9px;
+  font-size: 10px;
   color: #64748b;
   line-height: 1.25;
   overflow: hidden;
@@ -2212,13 +2227,13 @@ select.settings-input option {
 }
 
 .settings-helper-text {
-  font-size: 9px;
+  font-size: 10px;
   color: #64748b;
   line-height: 1.35;
 }
 
 .settings-helper-text code {
-  font-size: 9px;
+  font-size: 10px;
   background: rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(0, 0, 0, 0.12);
   color: #0f172a;
@@ -2877,3 +2892,15 @@ body.theme-dark .settings-body::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
   color: white;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
