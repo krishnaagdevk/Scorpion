@@ -19,8 +19,8 @@
     <div class="window-resize-handle resize-handle-nw" data-resize-handle="nw" aria-hidden="true"></div>
     <!-- Draggable Header with Pin and Close Button -->
     <div class="drag-handle">
-      <button id="pin-app-btn" class="pin-app-btn" title="Toggle Pin (Always on Top)" type="button">📌</button>
-      <button id="close-app-btn" class="close-app-btn" title="Close (or press Esc)">&times;</button>
+      <button id="pin-app-btn" class="pin-app-btn" data-tooltip="Toggle Pin (Always on Top)" type="button">📌</button>
+      <button id="close-app-btn" class="close-app-btn" data-tooltip="Close (or press Esc)">&times;</button>
     </div>
     <!-- Compact Interface - Horizontal Layout like Cluely -->
     <div class="main-interface">
@@ -29,14 +29,14 @@
         <div class="status-dot"></div>
         <span class="timer">00:00</span>
         <div class="screenshot-count" id="screenshot-count">0</div>
-        <button id="mobile-server-pill" class="mobile-server-pill off" type="button" title="Mobile companion status">
+        <button id="mobile-server-pill" class="mobile-server-pill off" type="button" data-tooltip="Mobile companion status">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="6" y="2" width="12" height="20" rx="2"/>
             <line x1="12" y1="18" x2="12" y2="18"/>
           </svg>
           <span id="mobile-server-pill-label">Mobile</span>
         </button>
-        <button id="click-through-pill" class="click-through-pill off" type="button" title="Ghost Mode (Alt+Shift+P): Click & type directly into VS Code / Notepad through the overlay without moving or resizing">
+        <button id="click-through-pill" class="click-through-pill off" type="button" data-tooltip="Ghost Mode (Alt+Shift+P): Click & type directly into VS Code / Notepad through the overlay without moving or resizing">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2a5 5 0 0 0-5 5v14l3-2 2 2 2-2 3 2V7a5 5 0 0 0-5-5z"/>
           </svg>
@@ -187,7 +187,7 @@
           class="chat-autoscroll-toggle"
           type="button"
           aria-pressed="true"
-          title="Toggle auto-scroll"
+          data-tooltip="Toggle auto-scroll"
         >&#x21E9;</button>
         <button id="chat-manual-send" class="chat-manual-send" type="button">Add</button>
       </div>

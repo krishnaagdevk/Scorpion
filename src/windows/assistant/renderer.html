@@ -19,8 +19,8 @@
     <div class="window-resize-handle resize-handle-nw" data-resize-handle="nw" aria-hidden="true"></div>
     <!-- Draggable Header with Pin and Close Button -->
     <div class="drag-handle" data-tauri-drag-region>
-      <button id="pin-app-btn" class="pin-app-btn" title="Toggle Pin (Always on Top)" type="button">📌</button>
-      <button id="close-app-btn" class="close-app-btn" title="Close (or press Esc)">&times;</button>
+      <button id="pin-app-btn" class="pin-app-btn" data-tooltip="Toggle Pin (Always on Top)" type="button">📌</button>
+      <button id="close-app-btn" class="close-app-btn" data-tooltip="Close (or press Esc)">&times;</button>
     </div>
     <!-- Compact Interface - Horizontal Layout like Cluely -->
     <div class="main-interface">
@@ -29,27 +29,27 @@
         <div class="status-dot"></div>
         <span class="timer">00:00</span>
         <div class="screenshot-count" id="screenshot-count">0</div>
-        <button id="mobile-server-pill" class="mobile-server-pill off" type="button" title="Mobile companion status">
+        <button id="mobile-server-pill" class="mobile-server-pill off" type="button" data-tooltip="Mobile companion status">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="6" y="2" width="12" height="20" rx="2"/>
             <line x1="12" y1="18" x2="12" y2="18"/>
           </svg>
           <span id="mobile-server-pill-label">Mobile</span>
         </button>
-        <button id="auto-copilot-pill" class="auto-copilot-pill off" type="button" title="Hands-free Parakeet AI Auto Copilot: Automatically answers when interviewer asks a question">
+        <button id="auto-copilot-pill" class="auto-copilot-pill off" type="button" data-tooltip="Hands-free Parakeet AI Auto Copilot: Automatically answers when interviewer asks a question">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
           </svg>
           <span id="auto-copilot-pill-label">Auto Copilot</span>
         </button>
-        <button id="oa-mode-pill" class="oa-mode-pill off" type="button" title="OA Mode: Solves Online Assessments, LeetCode coding questions, MCQs & SQL queries with direct code & solutions">
+        <button id="oa-mode-pill" class="oa-mode-pill off" type="button" data-tooltip="OA Mode: Solves Online Assessments, LeetCode coding questions, MCQs & SQL queries with direct code & solutions">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 18 22 12 16 6"></polyline>
             <polyline points="8 6 2 12 8 18"></polyline>
           </svg>
           <span id="oa-mode-pill-label">OA Mode</span>
         </button>
-        <button id="qa-window-pill" class="qa-window-pill off" type="button" title="Q&A Companion: Open separate window to view questions & answers without cluttering main screen (Alt+Shift+Q)">
+        <button id="qa-window-pill" class="qa-window-pill off" type="button" data-tooltip="Q&A Companion: Open separate window to view questions & answers without cluttering main screen (Alt+Shift+Q)">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
             <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -57,13 +57,13 @@
           </svg>
           <span id="qa-window-pill-label">Q&A Window</span>
         </button>
-        <button id="system-checks-pill" class="system-checks-pill" type="button" title="Pre-Flight System Checks: Verify Antigravity CLI, Audio & Screen Protection">
+        <button id="system-checks-pill" class="system-checks-pill" type="button" data-tooltip="Pre-Flight System Checks: Verify Antigravity CLI, Audio & Screen Protection">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
           <span id="system-checks-pill-label">Checks</span>
         </button>
-        <button id="click-through-pill" class="click-through-pill off" type="button" title="Ghost Mode (Alt+Shift+P): Click & type directly into VS Code / Notepad through the overlay without moving or resizing">
+        <button id="click-through-pill" class="click-through-pill off" type="button" data-tooltip="Ghost Mode (Alt+Shift+P): Click & type directly into VS Code / Notepad through the overlay without moving or resizing">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2a5 5 0 0 0-5 5v14l3-2 2 2 2-2 3 2V7a5 5 0 0 0-5-5z"/>
           </svg>
@@ -214,7 +214,7 @@
           class="chat-autoscroll-toggle"
           type="button"
           aria-pressed="true"
-          title="Toggle auto-scroll"
+          data-tooltip="Toggle auto-scroll"
         >&#x21E9;</button>
         <button id="chat-manual-send" class="chat-manual-send" type="button">Ask</button>
       </div>
@@ -426,7 +426,7 @@
             </svg>
             <h3 id="system-checks-title">Pre-Flight System Readiness Checks</h3>
           </div>
-          <button id="close-system-checks-btn" class="close-checks-x" title="Close">&times;</button>
+          <button id="close-system-checks-btn" class="close-checks-x" data-tooltip="Close">&times;</button>
         </div>
         <div class="system-checks-desc">
           Verifying system dependencies, Antigravity AI CLI, and screen invisibility protection before your interview or assessment.
@@ -441,6 +441,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Custom In-DOM Stealth Tooltip (100% excluded from screen capture) -->
+  <div id="stealth-tooltip" class="stealth-tooltip" aria-hidden="true"></div>
 
   <script type="module" src="renderer.js"></script>
 </body>

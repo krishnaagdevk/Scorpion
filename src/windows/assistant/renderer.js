@@ -105,7 +105,8 @@ function paintAutoScrollToggle() {
     const enabled = autoScrollEnabledState;
     chatAutoScrollToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
     chatAutoScrollToggle.classList.toggle('off', !enabled);
-    chatAutoScrollToggle.title = enabled ? 'Auto-scroll on (click to disable)' : 'Auto-scroll off (click to enable)';
+    chatAutoScrollToggle.setAttribute('data-tooltip', enabled ? 'Auto-scroll on (click to disable)' : 'Auto-scroll off (click to enable)');
+    chatAutoScrollToggle.removeAttribute('title');
 }
 
 const mobileServerPill = document.getElementById('mobile-server-pill');
@@ -120,9 +121,10 @@ function paintMobileServerPill() {
     if (!mobileServerStatus.listening) {
         mobileServerPill.classList.add('off');
         mobileServerPillLabel.textContent = mobileServerStatus.error ? 'Mobile · error' : 'Mobile · off';
-        mobileServerPill.title = mobileServerStatus.error
+        mobileServerPill.setAttribute('data-tooltip', mobileServerStatus.error
             ? `Mobile companion not running: ${mobileServerStatus.error}`
-            : 'Mobile companion not running';
+            : 'Mobile companion not running');
+        mobileServerPill.removeAttribute('title');
         return;
     }
 
@@ -155,7 +157,8 @@ function paintMobileServerPill() {
     lines.push('');
     lines.push('Click to copy URL. If the phone times out, run this once in elevated PowerShell:');
     lines.push('  New-NetFirewallRule -DisplayName "Open-Cluely Mobile" -Direction Inbound -LocalPort 7823 -Protocol TCP -Action Allow -Profile Any');
-    mobileServerPill.title = lines.join('\n');
+    mobileServerPill.setAttribute('data-tooltip', lines.join('\n'));
+    mobileServerPill.removeAttribute('title');
 }
 
 function copyMobileUrlPickReal() {
@@ -249,9 +252,10 @@ function paintClickThroughPill() {
     if (clickThroughPillLabel) {
         clickThroughPillLabel.textContent = isClickThroughActive ? 'Ghost: ON' : 'Ghost: OFF';
     }
-    clickThroughPill.title = isClickThroughActive
+    clickThroughPill.setAttribute('data-tooltip', isClickThroughActive
         ? 'Ghost Mode Active (Alt+Shift+P): Clicks pass directly through to VS Code / Notepad'
-        : 'Ghost Mode (Alt+Shift+P): Click & type directly into VS Code / Notepad through the overlay';
+        : 'Ghost Mode (Alt+Shift+P): Click & type directly into VS Code / Notepad through the overlay');
+    clickThroughPill.removeAttribute('title');
 }
 
 async function toggleClickThroughMode() {
@@ -302,9 +306,10 @@ function paintOaModePill() {
     if (label) {
         label.textContent = enabled ? 'OA Mode ON' : 'OA Mode OFF';
     }
-    oaModePill.title = enabled
+    oaModePill.setAttribute('data-tooltip', enabled
         ? 'Online Assessment (OA) Mode ON: Solves LeetCode, MCQs & SQL directly with code'
-        : 'OA Mode OFF: Click to enable direct code & assessment solver mode';
+        : 'OA Mode OFF: Click to enable direct code & assessment solver mode');
+    oaModePill.removeAttribute('title');
 }
 
 // Parakeet Auto-Copilot state & handlers
@@ -337,9 +342,10 @@ function paintAutoCopilotPill() {
     if (label) {
         label.textContent = enabled ? 'Auto Copilot ON' : 'Auto Copilot OFF';
     }
-    autoCopilotPill.title = enabled
+    autoCopilotPill.setAttribute('data-tooltip', enabled
         ? 'Parakeet Auto-Copilot ON: Automatically evaluates interview questions in real time'
-        : 'Auto Copilot OFF: Click to enable hands-free interview assistance';
+        : 'Auto Copilot OFF: Click to enable hands-free interview assistance');
+    autoCopilotPill.removeAttribute('title');
 }
 
 let lastAutoCopilotTriggerTime = 0;
@@ -576,8 +582,128 @@ function closeSystemChecksModal() {
     systemChecksModal.classList.add('hidden');
 }
 
+// In-DOM Stealth Tooltips (100% invisible on screen share, replaces native OS tooltips)
+function setupStealthTooltips() {
+    const tooltipEl = document.getElementById('stealth-tooltip') || (() => {
+        const el = document.createElement('div');
+        el.id = 'stealth-tooltip';
+        el.className = 'stealth-tooltip';
+        el.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(el);
+        return el;
+    })();
+
+    function sanitize(root = document) {
+        const list = root.querySelectorAll ? root.querySelectorAll('[title]') : [];
+        list.forEach((el) => {
+            const tip = el.getAttribute('title');
+            if (tip) {
+                el.setAttribute('data-tooltip', tip);
+                el.removeAttribute('title');
+            }
+        });
+        if (root.getAttribute && root.getAttribute('title')) {
+            const tip = root.getAttribute('title');
+            root.setAttribute('data-tooltip', tip);
+            root.removeAttribute('title');
+        }
+    }
+
+    sanitize();
+
+    try {
+        const obs = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                if (m.type === 'attributes' && m.attributeName === 'title' && m.target?.getAttribute?.('title')) {
+                    const tip = m.target.getAttribute('title');
+                    m.target.setAttribute('data-tooltip', tip);
+                    m.target.removeAttribute('title');
+                } else if (m.type === 'childList') {
+                    m.addedNodes.forEach((node) => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            sanitize(node);
+                        }
+                    });
+                }
+            }
+        });
+        obs.observe(document.documentElement, { attributes: true, attributeFilter: ['title'], subtree: true, childList: true });
+    } catch (_) {}
+
+    let tooltipTimeout = null;
+    let currentTarget = null;
+
+    function hideTooltip() {
+        if (tooltipTimeout) {
+            clearTimeout(tooltipTimeout);
+            tooltipTimeout = null;
+        }
+        tooltipEl.classList.remove('visible');
+        tooltipEl.style.display = 'none';
+        currentTarget = null;
+    }
+
+    function showTooltip(target, text) {
+        if (!text) return;
+        tooltipEl.textContent = text;
+        tooltipEl.style.display = 'block';
+
+        const rect = target.getBoundingClientRect();
+        const tipRect = tooltipEl.getBoundingClientRect();
+
+        let top = rect.top - tipRect.height - 6;
+        if (top < 6) {
+            top = rect.bottom + 6;
+        }
+        let left = rect.left + (rect.width - tipRect.width) / 2;
+        if (left < 6) left = 6;
+        if (left + tipRect.width > window.innerWidth - 6) {
+            left = window.innerWidth - tipRect.width - 6;
+        }
+
+        tooltipEl.style.top = `${Math.round(top)}px`;
+        tooltipEl.style.left = `${Math.round(left)}px`;
+        tooltipEl.classList.add('visible');
+    }
+
+    document.addEventListener('pointerover', (e) => {
+        const target = e.target.closest?.('[data-tooltip]');
+        if (!target) {
+            if (currentTarget && !e.target.closest?.('#stealth-tooltip')) {
+                hideTooltip();
+            }
+            return;
+        }
+        if (target === currentTarget) return;
+        currentTarget = target;
+        const text = target.getAttribute('data-tooltip');
+        if (!text) {
+            hideTooltip();
+            return;
+        }
+        if (tooltipTimeout) clearTimeout(tooltipTimeout);
+        tooltipTimeout = setTimeout(() => {
+            if (currentTarget === target) {
+                showTooltip(target, text);
+            }
+        }, 180);
+    });
+
+    document.addEventListener('pointerout', (e) => {
+        const target = e.target.closest?.('[data-tooltip]');
+        if (target && target === currentTarget) {
+            hideTooltip();
+        }
+    });
+
+    document.addEventListener('pointerdown', hideTooltip);
+    window.addEventListener('blur', hideTooltip);
+    window.addEventListener('scroll', hideTooltip, true);
+}
+
 // Initialize
 async function init() {
+    setupStealthTooltips();
     console.log('Initializing renderer with Vosk Live Transcription...');
 
     if (typeof window.electronAPI !== 'undefined') {
@@ -1392,23 +1518,26 @@ function updateUI() {
 
     if (transcriptionToggle) {
         transcriptionToggle.disabled = false;
-        transcriptionToggle.title = hasAssemblyAiApiKeyConfigured
+        transcriptionToggle.setAttribute('data-tooltip', hasAssemblyAiApiKeyConfigured
             ? 'Toggle live transcription (AssemblyAI Cloud STT)'
-            : 'Toggle live transcription (Windows Native Speech Recognition — Free & Offline)';
+            : 'Toggle live transcription (Windows Native Speech Recognition — Free & Offline)');
+        transcriptionToggle.removeAttribute('title');
     }
 
     if (sourceSystemToggle) {
         sourceSystemToggle.disabled = false;
-        sourceSystemToggle.title = hasAssemblyAiApiKeyConfigured
+        sourceSystemToggle.setAttribute('data-tooltip', hasAssemblyAiApiKeyConfigured
             ? 'Toggle Host (System) Audio capture'
-            : 'Host Audio capture (Windows Audio / Loopback)';
+            : 'Host Audio capture (Windows Audio / Loopback)');
+        sourceSystemToggle.removeAttribute('title');
     }
 
     if (sourceMicToggle) {
         sourceMicToggle.disabled = false;
-        sourceMicToggle.title = hasAssemblyAiApiKeyConfigured
+        sourceMicToggle.setAttribute('data-tooltip', hasAssemblyAiApiKeyConfigured
             ? 'Toggle Microphone Audio capture'
-            : 'Microphone Audio capture (Windows Native Speech Recognition)';
+            : 'Microphone Audio capture (Windows Native Speech Recognition)');
+        sourceMicToggle.removeAttribute('title');
     }
 }
 

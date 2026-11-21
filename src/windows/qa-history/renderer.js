@@ -29,9 +29,10 @@ function updateGhostBtnState() {
   if (!ghostBtn) return;
   ghostBtn.classList.toggle('active', isGhostMode);
   ghostBtn.setAttribute('aria-pressed', isGhostMode ? 'true' : 'false');
-  ghostBtn.setAttribute('title', isGhostMode
+  ghostBtn.setAttribute('data-tooltip', isGhostMode
     ? 'Ghost Mode Active (Alt+Shift+P): Clicks pass directly to VS Code / Notepad'
     : 'Ghost Mode (Alt+Shift+P): Click & type directly in VS Code / Notepad through this window');
+  ghostBtn.removeAttribute('title');
 }
 const recallToast = document.getElementById('recall-toast');
 const recallToastMsg = document.getElementById('recall-toast-msg');
@@ -284,11 +285,11 @@ function renderCard(item, index) {
         <span class="card-time">${timeStr}</span>
       </div>
       <div class="card-actions">
-        <button class="action-pill-btn copy-answer-btn" data-id="${item.id}" title="Copy complete answer">
+        <button class="action-pill-btn copy-answer-btn" data-id="${item.id}" data-tooltip="Copy complete answer">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
           <span>Copy</span>
         </button>
-        <button class="action-pill-btn delete-card-btn" data-id="${item.id}" title="Remove question (can recall anytime)">
+        <button class="action-pill-btn delete-card-btn" data-id="${item.id}" data-tooltip="Remove question (can recall anytime)">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
@@ -395,7 +396,8 @@ function updateRedoButtonState() {
   if (!redoBtn) return;
   if (deletedStack.length > 0) {
     redoBtn.classList.remove('hidden');
-    redoBtn.setAttribute('title', `Recall Removed Questions (${deletedStack.length} in buffer)`);
+    redoBtn.setAttribute('data-tooltip', `Recall Removed Questions (${deletedStack.length} in buffer)`);
+    redoBtn.removeAttribute('title');
   } else {
     redoBtn.classList.add('hidden');
   }
@@ -825,7 +827,127 @@ function setupStealthWindowResize() {
   });
 }
 
+// In-DOM Stealth Tooltips (100% invisible on screen share, replaces native OS tooltips)
+function setupStealthTooltips() {
+  const tooltipEl = document.getElementById('stealth-tooltip') || (() => {
+    const el = document.createElement('div');
+    el.id = 'stealth-tooltip';
+    el.className = 'stealth-tooltip';
+    el.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  function sanitize(root = document) {
+    const list = root.querySelectorAll ? root.querySelectorAll('[title]') : [];
+    list.forEach((el) => {
+      const tip = el.getAttribute('title');
+      if (tip) {
+        el.setAttribute('data-tooltip', tip);
+        el.removeAttribute('title');
+      }
+    });
+    if (root.getAttribute && root.getAttribute('title')) {
+      const tip = root.getAttribute('title');
+      root.setAttribute('data-tooltip', tip);
+      root.removeAttribute('title');
+    }
+  }
+
+  sanitize();
+
+  try {
+    const obs = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'title' && m.target?.getAttribute?.('title')) {
+          const tip = m.target.getAttribute('title');
+          m.target.setAttribute('data-tooltip', tip);
+          m.target.removeAttribute('title');
+        } else if (m.type === 'childList') {
+          m.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              sanitize(node);
+            }
+          });
+        }
+      }
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['title'], subtree: true, childList: true });
+  } catch (_) {}
+
+  let tooltipTimeout = null;
+  let currentTarget = null;
+
+  function hideTooltip() {
+    if (tooltipTimeout) {
+      clearTimeout(tooltipTimeout);
+      tooltipTimeout = null;
+    }
+    tooltipEl.classList.remove('visible');
+    tooltipEl.style.display = 'none';
+    currentTarget = null;
+  }
+
+  function showTooltip(target, text) {
+    if (!text) return;
+    tooltipEl.textContent = text;
+    tooltipEl.style.display = 'block';
+
+    const rect = target.getBoundingClientRect();
+    const tipRect = tooltipEl.getBoundingClientRect();
+
+    let top = rect.top - tipRect.height - 6;
+    if (top < 6) {
+      top = rect.bottom + 6;
+    }
+    let left = rect.left + (rect.width - tipRect.width) / 2;
+    if (left < 6) left = 6;
+    if (left + tipRect.width > window.innerWidth - 6) {
+      left = window.innerWidth - tipRect.width - 6;
+    }
+
+    tooltipEl.style.top = `${Math.round(top)}px`;
+    tooltipEl.style.left = `${Math.round(left)}px`;
+    tooltipEl.classList.add('visible');
+  }
+
+  document.addEventListener('pointerover', (e) => {
+    const target = e.target.closest?.('[data-tooltip]');
+    if (!target) {
+      if (currentTarget && !e.target.closest?.('#stealth-tooltip')) {
+        hideTooltip();
+      }
+      return;
+    }
+    if (target === currentTarget) return;
+    currentTarget = target;
+    const text = target.getAttribute('data-tooltip');
+    if (!text) {
+      hideTooltip();
+      return;
+    }
+    if (tooltipTimeout) clearTimeout(tooltipTimeout);
+    tooltipTimeout = setTimeout(() => {
+      if (currentTarget === target) {
+        showTooltip(target, text);
+      }
+    }, 180);
+  });
+
+  document.addEventListener('pointerout', (e) => {
+    const target = e.target.closest?.('[data-tooltip]');
+    if (target && target === currentTarget) {
+      hideTooltip();
+    }
+  });
+
+  document.addEventListener('pointerdown', hideTooltip);
+  window.addEventListener('blur', hideTooltip);
+  window.addEventListener('scroll', hideTooltip, true);
+}
+
 async function init() {
+  setupStealthTooltips();
   const modelBadgeEl = document.getElementById('model-badge-label');
   if (modelBadgeEl) {
     const activeModel = localStorage.getItem('gemini-model') || localStorage.getItem('antigravity-model') || 'gemini-3.8-flash-low';

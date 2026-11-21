@@ -227,7 +227,8 @@
         e.stopPropagation();
         const isPinned = await window.electronAPI.toggleAlwaysOnTop();
         pinBtn.classList.toggle('pinned', Boolean(isPinned));
-        pinBtn.title = isPinned ? 'Pinned on top (Click to unpin)' : 'Unpinned (Click to pin)';
+        pinBtn.setAttribute('data-tooltip', isPinned ? 'Pinned on top (Click to unpin)' : 'Unpinned (Click to pin)');
+        pinBtn.removeAttribute('title');
       });
     }
 
