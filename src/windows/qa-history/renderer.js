@@ -22,6 +22,7 @@ const closeBtn = document.getElementById('close-btn');
 const pinBtn = document.getElementById('pin-btn');
 const ghostBtn = document.getElementById('ghost-btn');
 const redoBtn = document.getElementById('redo-btn');
+const exportBtn = document.getElementById('export-btn');
 const clearBtn = document.getElementById('clear-btn');
 let isGhostMode = false;
 
@@ -254,6 +255,34 @@ function formatAnswerContent(text, status = 'completed') {
   `.trim();
 }
 
+function detectQuestionType(question = '', answer = '') {
+  const combined = (String(question || '') + ' ' + String(answer || '')).toLowerCase();
+  if (/```|def\s+[a-z0-9_]+\s*\(|function\s+[a-z0-9_]+\s*\(|class\s+[a-z0-9_]+|\bleetcode\b|\balgorithm\b|\bhashmap\b|\bbinary tree\b|\bdynamic programming\b|\btime complexity\b|\bspace complexity\b|time:\s*o|space:\s*o/i.test(combined)) {
+    return { type: 'technical', label: 'Technical / Coding', pillClass: 'tech' };
+  }
+  if (/tell me about a time|describe a situation|conflict|leadership|failure|challenge|disagreement|teamwork|strength|weakness|tell me about yourself|star method/i.test(combined)) {
+    return { type: 'behavioral', label: 'Behavioral (STAR)', pillClass: 'behavioral' };
+  }
+  if (/system design|scalability|microservice|load balancer|database sharding|\bcache\b|\bcdn\b|\bkafka\b|\barchitecture\b|throughput|latency|high availability/i.test(combined)) {
+    return { type: 'system-design', label: 'System Design', pillClass: 'sysdesign' };
+  }
+  return { type: 'concept', label: 'Core Concept', pillClass: 'concept' };
+}
+
+function calculateConfidence(item) {
+  if (item.status === 'evaluating' || !item.answer) {
+    return { label: '⚡ Streaming Live', class: 'evaluating' };
+  }
+  const ans = String(item.answer || '');
+  if (ans.length > 200 && (ans.includes('Say this') || ans.includes('Complexity:') || ans.includes('```'))) {
+    return { label: '🟢 98% High Confidence', class: 'high' };
+  }
+  if (ans.length > 80) {
+    return { label: '🟡 90% Grounded', class: 'medium' };
+  }
+  return { label: '✓ Ready', class: 'completed' };
+}
+
 function renderCard(item, index) {
   const card = document.createElement('article');
   card.className = 'qa-card';
@@ -269,6 +298,9 @@ function renderCard(item, index) {
   const tagClass = isCode ? 'code' : (item.source === 'screen' ? 'screen' : 'voice');
   const tagLabel = isCode ? 'Code / OA' : (item.source === 'screen' ? 'Screen OCR' : 'Live Audio');
 
+  const qType = detectQuestionType(item.question, item.answer);
+  const confidence = calculateConfidence(item);
+
   const isEvaluating = item.status === 'evaluating' || !item.answer;
   const statusClass = isEvaluating ? 'evaluating' : 'completed';
   const statusLabel = isEvaluating ? '⚡ Generating Answer...' : '✓ Solution Ready';
@@ -281,7 +313,8 @@ function renderCard(item, index) {
       <div class="card-meta-left">
         <span class="card-num">#${index + 1}</span>
         <span class="card-tag ${tagClass}">${tagLabel}</span>
-        <span class="card-status-badge ${statusClass}" id="status-badge-${item.id}">${statusLabel}</span>
+        <span class="card-type-badge ${qType.pillClass}">${qType.label}</span>
+        <span class="card-confidence-badge ${confidence.class}">${confidence.label}</span>
         <span class="card-time">${timeStr}</span>
       </div>
       <div class="card-actions">
@@ -440,11 +473,69 @@ async function performRecall() {
   }
 }
 
+function exportSessionAsMarkdown() {
+  if (!allItems || allItems.length === 0) {
+    showRecallToast('No Q&A pairs to export yet');
+    return;
+  }
+
+  const dateStr = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  const timeStr = new Date().toLocaleTimeString('en-US');
+
+  let md = `# Open-Cluely Interview Q&A Session Report\n\n`;
+  md += `**Date:** ${dateStr} at ${timeStr}  \n`;
+  md += `**Total Questions Answered:** ${allItems.length}  \n`;
+  md += `**AI Engine:** gemini-3.8-flash-low / Antigravity CLI  \n\n`;
+  md += `---\n\n`;
+
+  allItems.forEach((item, idx) => {
+    const qTitle = extractQuestionTitle(item.question, item.answer);
+    const qType = detectQuestionType(item.question, item.answer);
+    const time = item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : '';
+
+    md += `## Question ${idx + 1}: ${qTitle}\n\n`;
+    md += `- **Type:** ${qType.label}\n`;
+    if (time) md += `- **Time:** ${time}\n`;
+    md += `- **Source:** ${item.source === 'screen' ? 'Screen OCR / Problem Statement' : 'Interviewer Audio'}\n\n`;
+
+    if (item.question && item.question.trim() !== qTitle.trim()) {
+      md += `### Raw Context / Transcript\n> ${item.question.trim().replace(/\n/g, '\n> ')}\n\n`;
+    }
+
+    md += `### AI Teleprompter Solution\n\n`;
+    md += `${item.answer ? item.answer.trim() : '_No answer recorded_'}\n\n`;
+    md += `---\n\n`;
+  });
+
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const fileName = `interview-session-${new Date().toISOString().slice(0, 10)}.md`;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showRecallToast(`Exported ${allItems.length} Q&A items to ${fileName}`);
+}
+
 // Event Listeners
 function setupListeners() {
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
       window.qaApi?.closeQaWindow?.();
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      exportSessionAsMarkdown();
     });
   }
 

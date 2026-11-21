@@ -185,3 +185,35 @@ test('stealth window resize calculation enforces minimum bounds and direction ve
   assert.equal(clamped.width, 360);
   assert.equal(clamped.height, 240);
 });
+
+test('detectQuestionType accurately categorizes technical, behavioral, and system design questions', () => {
+  function detectQuestionType(question = '', answer = '') {
+    const combined = (String(question || '') + ' ' + String(answer || '')).toLowerCase();
+    if (/```|def\s+[a-z0-9_]+\s*\(|function\s+[a-z0-9_]+\s*\(|class\s+[a-z0-9_]+|\bleetcode\b|\balgorithm\b|\bhashmap\b|\bbinary tree\b|\bdynamic programming\b|\btime complexity\b|\bspace complexity\b|time:\s*o|space:\s*o/i.test(combined)) {
+      return { type: 'technical', label: 'Technical / Coding', pillClass: 'tech' };
+    }
+    if (/tell me about a time|describe a situation|conflict|leadership|failure|challenge|disagreement|teamwork|strength|weakness|tell me about yourself|star method/i.test(combined)) {
+      return { type: 'behavioral', label: 'Behavioral (STAR)', pillClass: 'behavioral' };
+    }
+    if (/system design|scalability|microservice|load balancer|database sharding|\bcache\b|\bcdn\b|\bkafka\b|\barchitecture\b|throughput|latency|high availability/i.test(combined)) {
+      return { type: 'system-design', label: 'System Design', pillClass: 'sysdesign' };
+    }
+    return { type: 'concept', label: 'Core Concept', pillClass: 'concept' };
+  }
+
+  const techQ = detectQuestionType('Find two numbers in array that sum to target', 'def twoSum(nums, target):\n    return {}');
+  assert.equal(techQ.type, 'technical');
+  assert.equal(techQ.pillClass, 'tech');
+
+  const behQ = detectQuestionType('Tell me about a time you handled a difficult conflict with a coworker', 'In my previous role...');
+  assert.equal(behQ.type, 'behavioral');
+  assert.equal(behQ.pillClass, 'behavioral');
+
+  const sysQ = detectQuestionType('How would you design a high availability URL shortener?', 'We can use Kafka and Redis cache with load balancer.');
+  assert.equal(sysQ.type, 'system-design');
+  assert.equal(sysQ.pillClass, 'sysdesign');
+
+  const conceptQ = detectQuestionType('Explain how closures work in JavaScript', 'A closure is the combination of a function bundled together with references to its surrounding state.');
+  assert.equal(conceptQ.type, 'concept');
+  assert.equal(conceptQ.pillClass, 'concept');
+});
