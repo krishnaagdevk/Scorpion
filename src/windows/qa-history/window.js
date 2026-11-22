@@ -19,6 +19,8 @@ function createQaHistoryWindow({
   const x = Math.max(20, width - windowWidth - 20);
   const y = 50;
 
+  const appIconPath = path.join(__dirname, '../../../assets/scorpion.ico');
+
   const qaWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
@@ -28,6 +30,7 @@ function createQaHistoryWindow({
     maxHeight: height,
     x,
     y,
+    icon: appIconPath,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -76,14 +79,14 @@ function createQaHistoryWindow({
     }
     qaWindow.setHiddenInMissionControl(true);
   } else if (process.platform === 'win32') {
-    console.log('Applying Windows stealth & anti-capture settings to Q&A window');
+    console.log('Applying Windows application & stealth settings to Q&A window');
     qaWindow.setSkipTaskbar(true);
     qaWindow.setAlwaysOnTop(true, 'pop-up-menu');
     qaWindow.setAppDetails({
-      appId: 'SystemProcess',
-      appIconPath: '',
+      appId: 'com.scorpion.assistant',
+      appIconPath,
       relaunchCommand: '',
-      relaunchDisplayName: ''
+      relaunchDisplayName: 'Scorpion'
     });
   }
 

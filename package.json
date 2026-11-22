@@ -1,7 +1,7 @@
 {
-  "name": "stealth-meeting-assistant",
+  "name": "scorpion",
   "version": "1.0.0",
-  "description": "Invisible AI assistant for meetings - undetectable during screen share",
+  "description": "Scorpion - AI Technical Interview & Meeting Assistant",
   "main": "src/main.js",
   "scripts": {
     "start": "node scripts/run-electron.js",
@@ -10,12 +10,14 @@
     "test": "node --test test/*.test.js",
     "build": "node scripts/run-build.js",
     "build:win": "node scripts/run-build.js --win portable",
+    "build:installer": "node scripts/run-build.js --win nsis",
     "build:mac": "node scripts/run-build.js --mac",
     "build:linux": "node scripts/run-build.js --linux"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "dotenv": "^16.3.1",
+    "regenerator-runtime": "^0.13.11",
     "screenshot-desktop": "^1.15.0",
     "tesseract.js": "^6.0.1",
     "ws": "^8.19.0"
@@ -26,13 +28,14 @@
     "esbuild": "^0.25.6"
   },
   "build": {
-    "appId": "com.google.chrome",
-    "productName": "Google Chrome (2)",
+    "appId": "com.scorpion.assistant",
+    "productName": "Scorpion",
     "directories": {
       "output": "dist"
     },
     "files": [
       "src/**/*",
+      "assets/**/*",
       "package.json",
       "node_modules/**/*",
       "!node_modules/.cache/**/*",
@@ -42,7 +45,9 @@
       "!dist/**/*"
     ],
     "asarUnpack": [
-      "node_modules/screenshot-desktop/**/*"
+      "node_modules/screenshot-desktop/**/*",
+      "node_modules/tesseract.js/**/*",
+      "node_modules/tesseract.js-core/**/*"
     ],
     "extraResources": [
       {
@@ -52,7 +57,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "assets/chrome.icns"
+      "icon": "assets/scorpion.png"
     },
     "win": {
       "target": [
@@ -63,20 +68,29 @@
           ]
         }
       ],
-      "icon": "assets/chrome.ico",
+      "icon": "assets/scorpion.ico",
       "requestedExecutionLevel": "asInvoker",
       "verifyUpdateCodeSignature": false,
-      "publisherName": "Google LLC",
+      "publisherName": "Scorpion AI",
+      "legalTrademarks": "Scorpion AI",
       "fileAssociations": []
     },
     "portable": {
       "artifactName": "Scorpion.exe"
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Scorpion",
+      "artifactName": "Scorpion-Setup.exe"
+    },
     "linux": {
       "target": "AppImage",
-      "icon": "assets/chrome.png"
+      "icon": "assets/scorpion.png"
     }
   },
-  "author": "Shubham",
+  "author": "Scorpion",
   "license": "MIT"
 }

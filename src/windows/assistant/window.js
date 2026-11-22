@@ -21,6 +21,8 @@ function createAssistantWindow({
 
   console.log(`Window position: ${x}, ${y}, size: ${defaultWidth}x${defaultHeight}`);
 
+  const appIconPath = path.join(__dirname, '../../../assets/scorpion.ico');
+
   const mainWindow = new BrowserWindow({
     width: defaultWidth,
     height: defaultHeight,
@@ -30,6 +32,7 @@ function createAssistantWindow({
     maxHeight: height,
     x,
     y,
+    icon: appIconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -97,14 +100,14 @@ function createAssistantWindow({
     app.dock.hide();
     mainWindow.setHiddenInMissionControl(true);
   } else if (process.platform === 'win32') {
-    console.log('Applying Windows stealth settings');
+    console.log('Applying Windows application & stealth settings');
     mainWindow.setSkipTaskbar(true);
     mainWindow.setAlwaysOnTop(true, 'pop-up-menu');
     mainWindow.setAppDetails({
-      appId: 'SystemProcess',
-      appIconPath: '',
+      appId: 'com.scorpion.assistant',
+      appIconPath,
       relaunchCommand: '',
-      relaunchDisplayName: ''
+      relaunchDisplayName: 'Scorpion'
     });
   }
 

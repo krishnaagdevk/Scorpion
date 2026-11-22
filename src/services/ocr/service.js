@@ -1,12 +1,24 @@
 'use strict';
 
 const fs = require('fs');
-const { createWorker } = require('tesseract.js');
+
+let tesseractModule = null;
+function getCreateWorker() {
+  if (!tesseractModule) {
+    try {
+      tesseractModule = require('tesseract.js');
+    } catch (err) {
+      console.warn('OCR tesseract.js not available:', err.message);
+      return null;
+    }
+  }
+  return tesseractModule?.createWorker || null;
+}
 
 const OCR_IDLE_TIMEOUT_MS = 45000; // Free ~150MB worker memory after 45s of idle
 
 function createOcrService({
-  createWorker: createWorkerFactory = createWorker,
+  createWorker: createWorkerFactory,
   fsModule = fs
 } = {}) {
   let workerPromise = null;
@@ -36,7 +48,11 @@ function createOcrService({
     }
 
     if (!workerPromise) {
-      workerPromise = createWorkerFactory('eng').catch((error) => {
+      const factory = createWorkerFactory || getCreateWorker();
+      if (!factory) {
+        throw new Error('OCR worker factory is not available');
+      }
+      workerPromise = factory('eng').catch((error) => {
         workerPromise = null;
         throw error;
       });
@@ -54,7 +70,14 @@ function createOcrService({
       return '';
     }
 
-    const worker = await getWorker();
+    let worker;
+    try {
+      worker = await getWorker();
+    } catch (err) {
+      console.warn('OCR processing skipped (worker unavailable):', err.message);
+      return '';
+    }
+
     const textParts = [];
 
     try {
