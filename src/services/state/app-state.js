@@ -7,7 +7,7 @@ const APP_STATE_FILE_NAME = 'app-state.json';
 function getDefaultAppState() {
   return {
     aiProvider: 'antigravity',
-    antigravityModel: 'gemini-3.8-flash-high',
+    antigravityModel: 'gemini-3.8-flash-low',
     geminiApiKey: null,
     assemblyAiApiKey: null,
     geminiApiKeyIndex: 0,

@@ -432,7 +432,9 @@ class OllamaService {
   }
 
   async answerQuestion(question, options = {}) {
-    const contextString = this.getContextString();
+    const contextString = typeof options.contextString === 'string' && options.contextString.trim()
+      ? options.contextString
+      : this.getContextString();
     const prompt = buildAnswerQuestionPrompt({
       contextString,
       question,

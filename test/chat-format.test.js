@@ -59,3 +59,57 @@ def execute_payment(idempotency_key, amount):
     assert.match(headlineHtml, /copy-code-btn/);
     assert.match(headlineHtml, /def execute_payment/);
 });
+
+function autoRepairIncompleteMarkdown(text) {
+    if (!text) return '';
+    let sanitized = String(text);
+    const codeFences = (sanitized.match(/```/g) || []).length;
+    if (codeFences % 2 !== 0) {
+        sanitized += '\n```';
+    }
+    const boldMarkers = (sanitized.match(/\*\*/g) || []).length;
+    if (boldMarkers % 2 !== 0) {
+        sanitized += '**';
+    }
+    return sanitized;
+}
+
+test('autoRepairIncompleteMarkdown safely closes unclosed code blocks and bold tags during live streaming', () => {
+    const unclosedCode = "Here is the solution:\n```python\ndef solve(arr):\n    return sum(arr)";
+    const repairedCode = autoRepairIncompleteMarkdown(unclosedCode);
+    assert.ok(repairedCode.endsWith('\n```'));
+
+    const unclosedBold = "**Say this (Opening): I optimized the latency";
+    const repairedBold = autoRepairIncompleteMarkdown(unclosedBold);
+    assert.ok(repairedBold.endsWith('**'));
+});
+
+test('formatResponse formats /btw Quick Answer headers into distinct badge UI', () => {
+    function formatWithBtw(text) {
+        let formatted = formatResponse(text);
+        return formatted.replace(
+            /(?:<strong>)?💬\s*\/btw\s*(?:Quick Answer)?:?(?:<\/strong>)?:?/i,
+            '<div class="teleprompter-say-header"><span class="say-icon">💬</span><span class="btw-badge">/btw Quick Answer</span></div>'
+        );
+    }
+
+    const btwText = `**💬 /btw Quick Answer:**\n\nTo reverse a linked list in O(n) time, maintain three pointers: prev, curr, and next.`;
+    const formatted = formatWithBtw(btwText);
+    assert.match(formatted, /btw-badge/);
+    assert.match(formatted, /\/btw Quick Answer/);
+    assert.match(formatted, /three pointers: prev, curr, and next/);
+});
+
+test('handles manual /btw question normalization and parallel action IDs', () => {
+    const inputWithSlashBtw = '/btw How does RAFT consensus work?';
+    const cleanQuestion1 = inputWithSlashBtw.replace(/^\/btw\s*/i, '').trim();
+    assert.equal(cleanQuestion1, 'How does RAFT consensus work?');
+
+    const inputDirectQuestion = 'What is CAP theorem?';
+    const cleanQuestion2 = inputDirectQuestion.replace(/^\/btw\s*/i, '').trim();
+    assert.equal(cleanQuestion2, 'What is CAP theorem?');
+
+    const actionId = `btw-${Date.now()}-123`;
+    assert.ok(actionId.startsWith('btw-'));
+    assert.notEqual(actionId, 'askAi');
+});

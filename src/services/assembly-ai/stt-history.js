@@ -1,4 +1,4 @@
-﻿function normalizeSttSource(source) {
+function normalizeSttSource(source) {
   return source === 'system' ? 'system' : 'mic';
 }
 
@@ -100,8 +100,8 @@ function createSttHistoryManager({
     }
 
     try {
-      const label = resolvedSource === 'system' ? 'Host' : 'You';
-      geminiService.addToHistory('user', `${label}: ${finalText}`);
+      const label = resolvedSource === 'system' ? 'Interviewer' : 'Candidate';
+      geminiService.addToHistory('user', `[${label}]: ${finalText}`);
       emitSttDebug({
         source: resolvedSource,
         event: 'history-flush',

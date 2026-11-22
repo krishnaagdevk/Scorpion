@@ -33,9 +33,46 @@ function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity, ge
     }
   }
 
+  function ensureQaWindowCreated() {
+    if (qaWindow && !qaWindow.isDestroyed()) {
+      return qaWindow;
+    }
+
+    try {
+      const appEnv = typeof getAppEnvironment === 'function' ? getAppEnvironment() : {};
+      const initialOpacity = typeof getInitialOpacity === 'function' ? getInitialOpacity() : 1;
+      const initialClickThrough = typeof getInitialClickThrough === 'function' ? getInitialClickThrough() : false;
+      qaWindow = createQaHistoryWindow({
+        app,
+        screen,
+        hideFromScreenCapture: true,
+        initialOpacity,
+        initialClickThrough,
+        autoShow: false,
+        onClosed: () => {
+          qaWindow = null;
+        }
+      });
+    } catch (err) {
+      // In unit test runner / headless environments without full Electron BrowserWindow
+    }
+
+    return qaWindow;
+  }
+
   function sendToQaWindow(channel, data) {
     if (qaWindow && !qaWindow.isDestroyed() && qaWindow.webContents) {
       try {
+        if (qaWindow.webContents.isLoading && qaWindow.webContents.isLoading()) {
+          qaWindow.webContents.once('did-finish-load', () => {
+            try {
+              if (qaWindow && !qaWindow.isDestroyed() && qaWindow.webContents) {
+                qaWindow.webContents.send(channel, data);
+              }
+            } catch (err) {}
+          });
+          return;
+        }
         qaWindow.webContents.send(channel, data);
       } catch (err) {
         console.error(`Failed to send to QA window [${channel}]:`, err.message);
@@ -45,23 +82,31 @@ function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity, ge
 
   function openQaWindow() {
     if (qaWindow && !qaWindow.isDestroyed()) {
-      qaWindow.showInactive();
+      try {
+        if (qaWindow.isMinimized && qaWindow.isMinimized()) {
+          qaWindow.restore();
+        }
+        qaWindow.showInactive();
+      } catch (err) {}
       return qaWindow;
     }
 
-    const appEnv = typeof getAppEnvironment === 'function' ? getAppEnvironment() : {};
-    const initialOpacity = typeof getInitialOpacity === 'function' ? getInitialOpacity() : 1;
-    const initialClickThrough = typeof getInitialClickThrough === 'function' ? getInitialClickThrough() : false;
-    qaWindow = createQaHistoryWindow({
-      app,
-      screen,
-      hideFromScreenCapture: true,
-      initialOpacity,
-      initialClickThrough,
-      onClosed: () => {
-        qaWindow = null;
-      }
-    });
+    try {
+      const appEnv = typeof getAppEnvironment === 'function' ? getAppEnvironment() : {};
+      const initialOpacity = typeof getInitialOpacity === 'function' ? getInitialOpacity() : 1;
+      const initialClickThrough = typeof getInitialClickThrough === 'function' ? getInitialClickThrough() : false;
+      qaWindow = createQaHistoryWindow({
+        app,
+        screen,
+        hideFromScreenCapture: true,
+        initialOpacity,
+        initialClickThrough,
+        autoShow: true,
+        onClosed: () => {
+          qaWindow = null;
+        }
+      });
+    } catch (err) {}
 
     return qaWindow;
   }
@@ -69,13 +114,13 @@ function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity, ge
   function closeQaWindow() {
     if (qaWindow && !qaWindow.isDestroyed()) {
       try {
-        qaWindow.destroy();
+        qaWindow.hide();
       } catch (err) {
         try {
-          qaWindow.close();
+          qaWindow.destroy();
         } catch (closeErr) {}
+        qaWindow = null;
       }
-      qaWindow = null;
     }
   }
 
@@ -89,8 +134,7 @@ function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity, ge
     }
 
     if (qaWindow && !qaWindow.isDestroyed() && qaWindow.isVisible()) {
-      qaWindow.close();
-      qaWindow = null;
+      closeQaWindow();
       return null;
     }
     return openQaWindow();
@@ -235,6 +279,7 @@ function createQaManager({ app, screen, getAppEnvironment, getInitialOpacity, ge
 
   return {
     openQaWindow,
+    ensureQaWindowCreated,
     closeQaWindow,
     toggleQaWindow,
     recordQuestion,

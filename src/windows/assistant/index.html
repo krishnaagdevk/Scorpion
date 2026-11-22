@@ -171,8 +171,8 @@
           id="chat-manual-input"
           class="chat-manual-input"
           rows="1"
-          placeholder="Type context to add as You..."
-          aria-label="Manual context input"
+          placeholder="Ask a question (/btw for parallel quick answer)..."
+          aria-label="Manual question input"
         ></textarea>
         <button
           id="chat-autoscroll-toggle"
@@ -219,128 +219,153 @@
           </svg>
         </button>
       </div>
+
+      <!-- Pure CSS Tabs Controls (Radio Inputs) -->
+      <input type="radio" name="settings-active-tab" id="settings-radio-ai" class="settings-tab-radio" checked>
+      <input type="radio" name="settings-active-tab" id="settings-radio-audio" class="settings-tab-radio">
+      <input type="radio" name="settings-active-tab" id="settings-radio-profile" class="settings-tab-radio">
+
+      <!-- Tabs Navigation Bar -->
+      <div class="settings-tabs-bar" role="tablist">
+        <label for="settings-radio-ai" class="settings-tab-label tab-label-ai" role="tab">AI Models</label>
+        <label for="settings-radio-audio" class="settings-tab-label tab-label-audio" role="tab">Audio &amp; Speech</label>
+        <label for="settings-radio-profile" class="settings-tab-label tab-label-profile" role="tab">Profile &amp; Keys</label>
+      </div>
+
       <div class="settings-body">
-        <div class="settings-group">
-          <label class="settings-label">AI Provider</label>
-          <select id="setting-ai-provider" class="settings-input">
-            <option value="antigravity">Antigravity (agy CLI - No API key needed)</option>
-            <option value="codex">OpenAI Codex CLI</option>
-            <option value="claude-code">Claude Code CLI</option>
-            <option value="gemini">Gemini (API Key)</option>
-            <option value="ollama">Ollama (Local)</option>
-          </select>
-        </div>
-        <div id="gemini-settings-group">
+        <!-- Tab 1: AI Models -->
+        <div class="settings-tab-panel tab-panel-ai">
           <div class="settings-group">
-            <label class="settings-label">Gemini API Key(s)</label>
+            <label class="settings-label">AI Provider</label>
+            <select id="setting-ai-provider" class="settings-input">
+              <option value="antigravity">Antigravity (agy CLI - No API key needed)</option>
+              <option value="codex">OpenAI Codex CLI</option>
+              <option value="claude-code">Claude Code CLI</option>
+              <option value="gemini">Gemini (API Key)</option>
+              <option value="ollama">Ollama (Local)</option>
+            </select>
+          </div>
+          <div id="gemini-settings-group">
+            <div class="settings-group">
+              <label class="settings-label">Gemini API Key(s)</label>
+              <div class="settings-input-row">
+                <input type="password" id="setting-gemini-key" class="settings-input" placeholder="Enter Gemini API key(s), comma-separated..." />
+                <button
+                  type="button"
+                  id="toggle-gemini-key-visibility"
+                  class="settings-input-toggle"
+                  aria-label="Show Gemini API key"
+                  aria-pressed="false"
+                >
+                  Show
+                </button>
+              </div>
+              <div class="settings-helper-text">Multiple Gemini keys are supported as comma-separated values.</div>
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Gemini Model</label>
+              <select id="setting-gemini-model" class="settings-input"></select>
+            </div>
+          </div>
+          <div id="ollama-settings-group" class="hidden">
+            <div class="settings-group">
+              <label class="settings-label">Ollama Server URL</label>
+              <input type="text" id="setting-ollama-base-url" class="settings-input" placeholder="http://localhost:11434" />
+              <div class="settings-helper-text">URL of your running Ollama instance.</div>
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Ollama Model</label>
+              <div class="settings-input-row">
+                <input type="text" id="setting-ollama-model" class="settings-input" placeholder="llama3.2" />
+                <button type="button" id="fetch-ollama-models" class="settings-input-toggle" aria-label="Fetch available Ollama models">
+                  Fetch
+                </button>
+              </div>
+              <div class="settings-helper-text">Enter a model name or click Fetch to list installed models.</div>
+              <select id="setting-ollama-model-select" class="settings-input hidden"></select>
+            </div>
+          </div>
+          <div id="antigravity-settings-group" class="hidden">
+            <div class="settings-group">
+              <label class="settings-label">Antigravity Model</label>
+              <select id="setting-antigravity-model" class="settings-input"></select>
+              <div class="settings-helper-text">Select which model to use via your local Antigravity subscription.</div>
+            </div>
+            <div class="settings-group">
+              <div class="settings-helper-text" style="color: #48bb78; font-weight: 500;">
+                &#x2705; Connected to Antigravity CLI (agy) on this machine. Runs silently in the background with zero API key required.
+              </div>
+            </div>
+          </div>
+          <div id="cli-agent-settings-group" class="hidden">
+            <div class="settings-group">
+              <label class="settings-label">CLI Agent Mode</label>
+              <select id="setting-cli-agent-type" class="settings-input">
+                <option value="codex">OpenAI Codex (codex)</option>
+                <option value="claude-code">Claude Code (claude)</option>
+                <option value="custom">Custom CLI Command</option>
+              </select>
+              <div class="settings-helper-text">Uses the coding agent CLI installed on this machine.</div>
+            </div>
+            <div class="settings-group hidden" id="cli-agent-custom-group">
+              <label class="settings-label">Custom Command</label>
+              <input type="text" id="setting-cli-agent-cmd" class="settings-input" placeholder="e.g. my-cli --prompt" />
+              <div class="settings-helper-text">Custom executable name or full path in PATH.</div>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Programming Language</label>
+            <select id="setting-programming-language" class="settings-input"></select>
+          </div>
+        </div>
+
+        <!-- Tab 2: Audio & Speech -->
+        <div class="settings-tab-panel tab-panel-audio">
+          <div class="settings-group">
+            <label class="settings-label">AssemblyAI API Key</label>
             <div class="settings-input-row">
-              <input type="password" id="setting-gemini-key" class="settings-input" placeholder="Enter Gemini API key(s), comma-separated..." />
+              <input type="password" id="setting-assembly-key" class="settings-input" placeholder="Enter AssemblyAI API key..." />
               <button
                 type="button"
-                id="toggle-gemini-key-visibility"
+                id="toggle-assembly-key-visibility"
                 class="settings-input-toggle"
-                aria-label="Show Gemini API key"
+                aria-label="Show AssemblyAI API key"
                 aria-pressed="false"
               >
                 Show
               </button>
             </div>
-            <div class="settings-helper-text">Multiple Gemini keys are supported as comma-separated values.</div>
           </div>
           <div class="settings-group">
-            <label class="settings-label">Gemini Model</label>
-            <select id="setting-gemini-model" class="settings-input"></select>
+            <label class="settings-label">AssemblyAI Speech Model</label>
+            <select id="setting-assembly-model" class="settings-input"></select>
           </div>
         </div>
-        <div id="ollama-settings-group" class="hidden">
+
+        <!-- Tab 3: Profile & Keys -->
+        <div class="settings-tab-panel tab-panel-profile">
           <div class="settings-group">
-            <label class="settings-label">Ollama Server URL</label>
-            <input type="text" id="setting-ollama-base-url" class="settings-input" placeholder="http://localhost:11434" />
-            <div class="settings-helper-text">URL of your running Ollama instance.</div>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">Ollama Model</label>
-            <div class="settings-input-row">
-              <input type="text" id="setting-ollama-model" class="settings-input" placeholder="llama3.2" />
-              <button type="button" id="fetch-ollama-models" class="settings-input-toggle" aria-label="Fetch available Ollama models">
-                Fetch
-              </button>
+            <div class="settings-label-row">
+              <label class="settings-label" for="setting-window-opacity">Window Opacity</label>
+              <span id="setting-window-opacity-value" class="settings-value-chip">10/10</span>
             </div>
-            <div class="settings-helper-text">Enter a model name or click Fetch to list installed models.</div>
-            <select id="setting-ollama-model-select" class="settings-input hidden"></select>
+            <input
+              type="range"
+              id="setting-window-opacity"
+              class="settings-range"
+              min="1"
+              max="10"
+              step="1"
+              value="10"
+            />
           </div>
-        </div>
-        <div id="antigravity-settings-group" class="hidden">
           <div class="settings-group">
-            <label class="settings-label">Antigravity Model</label>
-            <select id="setting-antigravity-model" class="settings-input"></select>
-            <div class="settings-helper-text">Select which model to use via your local Antigravity subscription.</div>
-          </div>
-          <div class="settings-group">
-            <div class="settings-helper-text" style="color: #48bb78; font-weight: 500;">
-              &#x2705; Connected to Antigravity CLI (agy) on this machine. Runs silently in the background with zero API key required.
-            </div>
+            <label class="settings-label">Keyboard Shortcuts</label>
+            <div id="settings-shortcuts-list" class="settings-shortcuts-list"></div>
+            <div class="settings-helper-text">Shortcuts are read-only here. Edit <code>src/config.js</code> to customize.</div>
           </div>
         </div>
-        <div id="cli-agent-settings-group" class="hidden">
-          <div class="settings-group">
-            <label class="settings-label">CLI Agent Mode</label>
-            <select id="setting-cli-agent-type" class="settings-input">
-              <option value="codex">OpenAI Codex (codex)</option>
-              <option value="claude-code">Claude Code (claude)</option>
-              <option value="custom">Custom CLI Command</option>
-            </select>
-            <div class="settings-helper-text">Uses the coding agent CLI installed on this machine.</div>
-          </div>
-          <div class="settings-group hidden" id="cli-agent-custom-group">
-            <label class="settings-label">Custom Command</label>
-            <input type="text" id="setting-cli-agent-cmd" class="settings-input" placeholder="e.g. my-cli --prompt" />
-            <div class="settings-helper-text">Custom executable name or full path in PATH.</div>
-          </div>
-        </div>
-        <div class="settings-group">
-          <label class="settings-label">Programming Language</label>
-          <select id="setting-programming-language" class="settings-input"></select>
-        </div>
-        <div class="settings-group">
-          <label class="settings-label">AssemblyAI API Key</label>
-          <div class="settings-input-row">
-            <input type="password" id="setting-assembly-key" class="settings-input" placeholder="Enter AssemblyAI API key..." />
-            <button
-              type="button"
-              id="toggle-assembly-key-visibility"
-              class="settings-input-toggle"
-              aria-label="Show AssemblyAI API key"
-              aria-pressed="false"
-            >
-              Show
-            </button>
-          </div>
-        </div>
-        <div class="settings-group">
-          <label class="settings-label">AssemblyAI Speech Model</label>
-          <select id="setting-assembly-model" class="settings-input"></select>
-        </div>
-        <div class="settings-group">
-          <div class="settings-label-row">
-            <label class="settings-label" for="setting-window-opacity">Window Opacity</label>
-            <span id="setting-window-opacity-value" class="settings-value-chip">10/10</span>
-          </div>
-          <input
-            type="range"
-            id="setting-window-opacity"
-            class="settings-range"
-            min="1"
-            max="10"
-            step="1"
-            value="10"
-          />
-        </div>
-        <div class="settings-group">
-          <label class="settings-label">Keyboard Shortcuts</label>
-          <div id="settings-shortcuts-list" class="settings-shortcuts-list"></div>
-          <div class="settings-helper-text">Shortcuts are read-only here. Edit <code>src/config.js</code> to customize.</div>
-        </div>
+
         <button id="save-settings-btn" class="save-settings-btn">Save Settings</button>
       </div>
     </div>

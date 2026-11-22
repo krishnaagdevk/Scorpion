@@ -25,7 +25,7 @@ const exportBtn = document.getElementById('export-btn');
 const clearBtn = document.getElementById('clear-btn');
 const viewModeBtn = document.getElementById('view-mode-btn');
 let isGhostMode = false;
-let isFlashcardMode = false;
+let isFlashcardMode = true;
 
 function updateGhostState() {
   const container = document.querySelector('.qa-container');
@@ -62,14 +62,29 @@ function extractQuestionTitle(rawQuestion, answerText) {
     return 'Screen Problem Analysis (Code / OA)';
   }
 
-  // 2. Remove speech-to-text speaker prefixes
-  let cleaned = str
+  // 2. If multi-line transcript context, find the primary interviewer question line
+  const lines = str.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let targetText = str;
+  if (lines.length > 1) {
+    const interviewerLine = lines.slice().reverse().find(l => /Interviewer|Host/i.test(l));
+    if (interviewerLine) {
+      targetText = interviewerLine;
+    } else {
+      const qLine = lines.slice().reverse().find(l => /\?$/.test(l));
+      if (qLine) {
+        targetText = qLine;
+      }
+    }
+  }
+
+  // 3. Remove speech-to-text speaker prefixes
+  let cleaned = targetText
     .replace(/^\[(?:Speaker|Host|Interviewer)\s*\d*\]:?\s*/i, '')
     .replace(/^(?:Interviewer|Host|Candidate):\s*/i, '')
     .replace(/^Transcript:\s*/i, '')
     .trim();
 
-  // 3. Strip conversational speech filler
+  // 4. Strip conversational speech filler
   cleaned = cleaned.replace(/^(?:um+|uh+|so+|like+|yeah+|ok+|okay+|well+|hey+|hi+|hello)\s*,?\s*/i, '');
   cleaned = cleaned.replace(/^(?:can you|could you|please|tell me|explain to me|i wanted to ask|i want to know|let's talk about)\s*,?\s*/i, '');
 
@@ -78,10 +93,32 @@ function extractQuestionTitle(rawQuestion, answerText) {
     if (/^(?:how|what|why|where|when|which|who|can|could|would|should|is|are|do|does)\b/i.test(cleaned) && !/[?.!]$/.test(cleaned)) {
       cleaned += '?';
     }
+    if (cleaned.length > 130) {
+      return cleaned.slice(0, 127) + '...';
+    }
     return cleaned;
   }
 
-  return str;
+  return str.length > 130 ? str.slice(0, 127) + '...' : str;
+}
+
+function autoRepairIncompleteMarkdown(text) {
+  if (!text) return '';
+  let sanitized = String(text);
+
+  // Check for unclosed code fence (odd count of ```)
+  const codeFences = (sanitized.match(/```/g) || []).length;
+  if (codeFences % 2 !== 0) {
+    sanitized += '\n```';
+  }
+
+  // Check for unclosed bold markers (odd count of **)
+  const boldMarkers = (sanitized.match(/\*\*/g) || []).length;
+  if (boldMarkers % 2 !== 0) {
+    sanitized += '**';
+  }
+
+  return sanitized;
 }
 
 function formatInlineMarkdown(text) {
@@ -103,21 +140,23 @@ function formatAnswerContent(text, status = 'completed') {
     `;
   }
 
+  const workingText = status === 'evaluating' ? autoRepairIncompleteMarkdown(text) : String(text);
+
   // 1. Extract Code Blocks into tokens first so inner contents are protected
   const codeBlocks = [];
-  let processed = text.replace(/```([a-zA-Z0-9_\-+]*)\n([\s\S]*?)```/g, (_match, lang, code) => {
+  let processed = workingText.replace(/```([a-zA-Z0-9_\-+]*)\n?([\s\S]*?)```/g, (_match, lang, code) => {
     const idx = codeBlocks.length;
     codeBlocks.push({ lang: lang || 'code', code: code.trim() });
-    return `__CODE_BLOCK_${idx}__`;
+    return `\n__CODE_BLOCK_${idx}__\n`;
   });
 
   // 2. Strip out duplicate **🎯 Question:** from the body since it's displayed in the top header
   processed = processed.replace(/(?:\*{0,2}🎯\s*Question:\*{0,2}|🎯\s*Question:?)\s*[^\n\r]+(?:\r?\n)*/gi, '');
 
-  // 3. Extract "Say this (Opening / Headline / Direct / Spoken story)" into a standout teleprompter card
+  // 3. Extract "Say this (Opening / Headline / Direct / Spoken story)" or "/btw" into a standout teleprompter card
   let sayThisCard = '';
   const sayThisMatch = processed.match(
-    /(?:\*{0,2}[🎙️💬]?\s*Say\s+this(?:\s*\([^)]+\))?:?\*{0,2}:?\s*)(?:<br>|\n)*([“"'][^<>\n\r]+[”"']|[^\n\r]+(?=\r?\n\r?\n|\*{0,2}[A-Z]|$))/i
+    /(?:\*{0,2}[🎙️💬]?\s*(?:Say\s+this(?:\s*\([^)]+\))?|\/btw|Direct\s+Answer|Quick\s+Answer):?\*{0,2}:?\s*)(?:<br>|\n)*([“"'][^<>\n\r]+[”"']|[^\n\r]+(?=\r?\n\r?\n|\*{0,2}[A-Z]|$))/i
   );
   if (sayThisMatch) {
     const rawSayText = sayThisMatch[1].replace(/^[“"']+|[”"']+$/g, '').trim();
@@ -360,7 +399,7 @@ function renderCard(item, index) {
 function updateCounts() {
   const total = allItems.length;
   const codeCount = allItems.filter(i => i.hasCode || /```/.test(i.answer || '')).length;
-  const voiceCount = allItems.filter(i => i.source === 'voice' || !i.source).length;
+  const voiceCount = allItems.filter(i => i.source === 'voice' || i.source === 'manual' || !i.source).length;
 
   if (countAll) countAll.textContent = total;
   if (countCode) countCode.textContent = codeCount;
@@ -381,7 +420,7 @@ function applyFilters() {
     const matchesFilter =
       activeFilter === 'all' ||
       (activeFilter === 'code' && (item.hasCode || /```/.test(item.answer || ''))) ||
-      (activeFilter === 'voice' && (item.source === 'voice' || !item.source));
+      (activeFilter === 'voice' && (item.source === 'voice' || item.source === 'manual' || !item.source));
 
     const matchesSearch =
       !query ||
@@ -718,57 +757,97 @@ function setupListeners() {
     });
 
     window.qaApi.onQaAnswerChunk((data) => {
-      const item = allItems.find(i => String(i.id) === String(data.id));
-      if (item) {
-        item.answer = (item.answer || '') + (data.chunk || '');
-        item.status = 'evaluating';
-        const elem = document.getElementById(`answer-content-${item.id}`);
-        if (elem) {
-          elem.innerHTML = formatAnswerContent(item.answer, 'evaluating');
-        }
-        const qElem = document.getElementById(`question-text-${item.id}`);
-        if (qElem) {
-          qElem.textContent = extractQuestionTitle(item.question, item.answer);
-        }
-        const badgeElem = document.getElementById(`status-badge-${item.id}`);
-        if (badgeElem && !badgeElem.classList.contains('evaluating')) {
-          badgeElem.className = 'card-status-badge evaluating';
-          badgeElem.textContent = '⚡ Generating Answer...';
-        }
-        const card = document.getElementById(`qa-card-${item.id}`);
-        if (card && !card.classList.contains('live-active')) {
+      let item = allItems.find(i => String(i.id) === String(data.id));
+      if (!item) {
+        item = {
+          id: data.id,
+          question: 'Interview Question',
+          answer: '',
+          source: 'voice',
+          hasCode: false,
+          timestamp: new Date().toISOString(),
+          status: 'evaluating'
+        };
+        allItems.unshift(item);
+        const card = renderCard(item, 0);
+        card.classList.add('live-active');
+        qaFeed.prepend(card);
+        updateCounts();
+        applyFilters();
+      }
+      item.answer = (item.answer || '') + (data.chunk || '');
+      item.status = 'evaluating';
+      let elem = document.getElementById(`answer-content-${item.id}`);
+      if (!elem) {
+        const existingCard = document.getElementById(`qa-card-${item.id}`);
+        if (!existingCard) {
+          const card = renderCard(item, 0);
           card.classList.add('live-active');
+          qaFeed.prepend(card);
         }
+        elem = document.getElementById(`answer-content-${item.id}`);
+      }
+      if (elem) {
+        elem.innerHTML = formatAnswerContent(item.answer, 'evaluating');
+      }
+      const qElem = document.getElementById(`question-text-${item.id}`);
+      if (qElem) {
+        qElem.textContent = extractQuestionTitle(item.question, item.answer);
+      }
+      const badgeElem = document.getElementById(`status-badge-${item.id}`);
+      if (badgeElem && !badgeElem.classList.contains('evaluating')) {
+        badgeElem.className = 'card-status-badge evaluating';
+        badgeElem.textContent = '⚡ Generating Answer...';
+      }
+      const card = document.getElementById(`qa-card-${item.id}`);
+      if (card && !card.classList.contains('live-active')) {
+        card.classList.add('live-active');
       }
     });
 
     window.qaApi.onQaAnswerComplete((data) => {
-      const item = allItems.find(i => String(i.id) === String(data.id));
-      if (item) {
+      let item = allItems.find(i => String(i.id) === String(data.id));
+      if (!item) {
+        item = {
+          id: data.id,
+          question: data.identifiedQuestion || 'Interview Question',
+          answer: data.answer || '',
+          source: 'voice',
+          hasCode: /```/.test(data.answer || ''),
+          timestamp: new Date().toISOString(),
+          status: 'completed'
+        };
+        allItems.unshift(item);
+        const card = renderCard(item, 0);
+        qaFeed.prepend(card);
+      } else {
         item.answer = data.answer || item.answer;
         item.hasCode = /```/.test(item.answer || '');
         item.status = 'completed';
-        const elem = document.getElementById(`answer-content-${item.id}`);
-        if (elem) {
-          elem.innerHTML = formatAnswerContent(item.answer, 'completed');
+        if (data.identifiedQuestion) {
+          item.identifiedQuestion = data.identifiedQuestion;
         }
-        const qElem = document.getElementById(`question-text-${item.id}`);
-        if (qElem) {
-          qElem.textContent = extractQuestionTitle(item.question, item.answer);
-        }
-        const badgeElem = document.getElementById(`status-badge-${item.id}`);
-        if (badgeElem) {
-          badgeElem.className = 'card-status-badge completed';
-          badgeElem.textContent = '✓ Solution Ready';
-        }
-        const card = document.getElementById(`qa-card-${item.id}`);
-        if (card) {
-          card.classList.remove('live-active');
-          card.classList.add('completed');
-        }
-        updateCounts();
-        applyFilters();
       }
+      const elem = document.getElementById(`answer-content-${item.id}`);
+      if (elem) {
+        elem.innerHTML = formatAnswerContent(item.answer, 'completed');
+      }
+      const qElem = document.getElementById(`question-text-${item.id}`);
+      if (qElem) {
+        qElem.textContent = extractQuestionTitle(item.question, item.answer);
+      }
+      const badgeElem = document.getElementById(`status-badge-${item.id}`);
+      if (badgeElem) {
+        badgeElem.className = 'card-status-badge completed';
+        badgeElem.textContent = '✓ Solution Ready';
+      }
+      const card = document.getElementById(`qa-card-${item.id}`);
+      if (card) {
+        card.classList.remove('live-active');
+        card.classList.add('completed');
+      }
+      updateCounts();
+      applyFilters();
     });
 
     window.qaApi.onQaHistoryCleared(() => {
@@ -1063,6 +1142,16 @@ function setupStealthTooltips() {
 
 async function init() {
   setupStealthTooltips();
+  if (qaFeed) {
+    qaFeed.classList.toggle('flashcard-mode', isFlashcardMode);
+  }
+  if (viewModeBtn) {
+    viewModeBtn.classList.toggle('active', isFlashcardMode);
+    viewModeBtn.textContent = isFlashcardMode ? '📋 Full Teleprompter' : '⚡ Flashcard Mode';
+    viewModeBtn.setAttribute('data-tooltip', isFlashcardMode
+      ? 'Currently in Flashcard Mode (High-speed glance reading). Click for Full Teleprompter.'
+      : 'Switch to Quick-Glance Flashcard Mode (Prominent spoken answer & top highlights)');
+  }
   const modelBadgeEl = document.getElementById('model-badge-label');
   if (modelBadgeEl) {
     const activeModel = localStorage.getItem('gemini-model') || localStorage.getItem('antigravity-model') || 'gemini-3.8-flash-low';
@@ -1089,7 +1178,8 @@ async function init() {
     try {
       const history = await window.qaApi.getQaHistory();
       if (Array.isArray(history)) {
-        allItems = history;
+        // Reverse so most recent Q&A items appear at the top of the feed
+        allItems = [...history].reverse();
         renderAllItems();
       }
     } catch (err) {

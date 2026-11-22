@@ -70,7 +70,7 @@
         <button class="filter-pill active" data-filter="all">All (<span id="count-all">0</span>)</button>
         <button class="filter-pill" data-filter="code">Code & OA (<span id="count-code">0</span>)</button>
         <button class="filter-pill" data-filter="voice">Interviewer Qs (<span id="count-voice">0</span>)</button>
-        <button id="view-mode-btn" class="filter-pill view-mode-pill" data-tooltip="Switch between Full Teleprompter and Quick-Glance Flashcard Mode">⚡ Flashcard Mode</button>
+        <button id="view-mode-btn" class="filter-pill view-mode-pill active" data-tooltip="Currently in Flashcard Mode (High-speed glance reading). Click for Full Teleprompter.">📋 Full Teleprompter</button>
       </div>
     </div>
 
@@ -81,7 +81,7 @@
     </div>
 
     <!-- Main Q&A List -->
-    <main id="qa-feed" class="qa-feed">
+    <main id="qa-feed" class="qa-feed flashcard-mode">
       <!-- Empty State -->
       <div id="empty-state" class="empty-state">
         <div class="empty-icon">

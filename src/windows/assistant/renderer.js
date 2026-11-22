@@ -447,9 +447,9 @@ const chatUiManager = createChatUiManager({
     showFeedback: (message, type) => showFeedback(message, type),
     addMonitorLog: (...args) => addMonitorLog(...args),
     isAutoScrollEnabled,
-    onMessageSubmitted: (_text) => {
-        askAiWithSessionContext({ silentOverlay: true }).catch((err) => {
-            console.error('Manual question evaluation error:', err);
+    onMessageSubmitted: (text) => {
+        handleBtwDirectQuestion(text).catch((err) => {
+            console.error('Manual /btw question evaluation error:', err);
         });
     }
 });
@@ -971,30 +971,52 @@ function createStreamHandler(actionId) {
     let accumulatedText = '';
     let messageRecord = null;
     let removeChunkListener = null;
+    let removeEndListener = null;
+    let streamingSession = null;
     let loadingHidden = false;
 
     function start(headingPrefix) {
         accumulatedText = headingPrefix || '';
         messageRecord = addChatMessage('ai-response', accumulatedText || '...');
 
-        removeChunkListener = window.electronAPI.onAiStreamChunk((data) => {
-            if (data.actionId !== actionId) return;
-            accumulatedText += data.text;
-            if (messageRecord) {
-                chatUiManager.updateChatMessageContent(messageRecord.id, accumulatedText);
+        if (messageRecord && typeof chatUiManager?.createStreamingSession === 'function') {
+            streamingSession = chatUiManager.createStreamingSession(messageRecord.id);
+            if (accumulatedText) {
+                streamingSession.appendChunk(accumulatedText);
             }
+        }
+
+        removeChunkListener = window.electronAPI.onAiStreamChunk((data) => {
+            if (data?.actionId !== actionId) return;
             if (!loadingHidden) {
                 loadingHidden = true;
                 hideLoadingOverlay();
             }
+            if (streamingSession) {
+                streamingSession.appendChunk(data.text);
+            } else if (messageRecord) {
+                accumulatedText += data.text;
+                chatUiManager.updateChatMessageContent(messageRecord.id, accumulatedText, { isStreaming: true });
+            }
         });
+
+        if (typeof window.electronAPI.onAiStreamEnd === 'function') {
+            removeEndListener = window.electronAPI.onAiStreamEnd((data) => {
+                if (data?.actionId !== actionId) return;
+                if (streamingSession) {
+                    streamingSession.complete();
+                }
+            });
+        }
 
         return messageRecord;
     }
 
     function finalize(finalText) {
-        if (finalText && messageRecord) {
-            chatUiManager.updateChatMessageContent(messageRecord.id, finalText);
+        if (streamingSession) {
+            streamingSession.complete(finalText);
+        } else if (finalText && messageRecord) {
+            chatUiManager.updateChatMessageContent(messageRecord.id, finalText, { isStreaming: false });
         }
     }
 
@@ -1002,6 +1024,14 @@ function createStreamHandler(actionId) {
         if (removeChunkListener) {
             removeChunkListener();
             removeChunkListener = null;
+        }
+        if (removeEndListener) {
+            removeEndListener();
+            removeEndListener = null;
+        }
+        if (streamingSession) {
+            streamingSession.abort();
+            streamingSession = null;
         }
     }
 
@@ -1160,6 +1190,67 @@ function buildAskAiContextPayload() {
     };
 }
 
+async function handleBtwDirectQuestion(text) {
+    const rawText = String(text || '').trim();
+    if (!rawText) return;
+
+    if (!hasGeminiApiKeysConfigured) {
+        showFeedback('AI provider not ready. Check Settings.', 'error');
+        return;
+    }
+
+    if (!window.electronAPI?.answerQuestion) {
+        showFeedback('Question answering feature not available', 'error');
+        return;
+    }
+
+    // Support optional "/btw" prefix if typed, e.g. "/btw explain merge sort" -> "explain merge sort"
+    const cleanQuestion = rawText.replace(/^\/btw\s*/i, '').trim() || rawText;
+
+    // Unique action ID for parallel stream processing (runs concurrently without blocking askAi/screenAi locks)
+    const actionId = `btw-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    addMonitorLog('info', 'btw-query-start', 'Processing parallel /btw question', 'user', {
+        question: cleanQuestion.length > 50 ? `${cleanQuestion.slice(0, 50)}...` : cleanQuestion,
+        actionId
+    });
+    showFeedback('Answering question in parallel (/btw)...', 'info');
+
+    const stream = createStreamHandler(actionId);
+    const heading = '**💬 /btw Quick Answer:**\n\n';
+    stream.start(heading);
+
+    try {
+        const bundle = buildFilteredAiContextBundle({
+            charBudget: AI_CONTEXT_CHAR_BUDGET,
+            emitTruncationLog: false
+        });
+
+        const result = await window.electronAPI.answerQuestion({
+            question: cleanQuestion,
+            actionId,
+            contextString: bundle?.contextString || ''
+        });
+
+        if (result?.success && result?.answer) {
+            stream.finalize(`${heading}${result.answer}`);
+            showFeedback('Answer ready', 'success');
+        } else if (result?.answer) {
+            stream.finalize(`${heading}${result.answer}`);
+        } else {
+            const errorMsg = result?.error || 'Failed to answer question';
+            stream.finalize(`${heading}⚠️ ${errorMsg}`);
+            showFeedback(errorMsg, 'error');
+        }
+    } catch (err) {
+        console.error('Parallel /btw question error:', err);
+        stream.finalize(`${heading}⚠️ ${err.message || 'Error occurred while answering'}`);
+        showFeedback(err.message || 'Failed to answer question', 'error');
+    } finally {
+        stream.cleanup();
+    }
+}
+
 async function askAiWithSessionContext({ silentOverlay = false } = {}) {
     if (!hasGeminiApiKeysConfigured) {
         showFeedback('AI provider not ready. Check Settings.', 'error');
@@ -1191,15 +1282,15 @@ async function askAiWithSessionContext({ silentOverlay = false } = {}) {
                     autoCopilotPill.classList.add('evaluating');
                 }
             }
-            stream.start('**🎯 Evaluating question...**\n\n');
+            const heading = payload.enabledScreenshotIds && payload.enabledScreenshotIds.length > 0
+                ? '**Best Next Answer (Transcript + Screen):**\n\n'
+                : '**Best Next Answer:**\n\n';
+            stream.start(heading);
 
             const result = await window.electronAPI.askAiWithSessionContext(payload);
 
             if (result?.success && result?.text) {
-                const heading = result.usedScreenshots
-                    ? '**Best Next Answer (Transcript + Screen):**'
-                    : '**Best Next Answer (Transcript):**';
-                stream.finalize(`${heading}\n\n${result.text}`);
+                stream.finalize(`${heading}${result.text}`);
                 showFeedback('Answer ready', 'success');
             } else {
                 throw new Error(result?.error || 'Ask AI failed');

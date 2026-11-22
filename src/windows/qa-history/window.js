@@ -7,6 +7,7 @@ function createQaHistoryWindow({
   hideFromScreenCapture = true,
   initialOpacity = 1,
   initialClickThrough = false,
+  autoShow = true,
   onClosed
 }) {
   console.log('Creating stealth Q&A History companion window...');
@@ -91,7 +92,9 @@ function createQaHistoryWindow({
 
   // Display stealthily without stealing focus from interviewer's meeting
   qaWindow.once('ready-to-show', () => {
-    qaWindow.showInactive();
+    if (autoShow) {
+      qaWindow.showInactive();
+    }
     if (initialClickThrough) {
       try {
         qaWindow.setIgnoreMouseEvents(true, { forward: true });
@@ -100,7 +103,7 @@ function createQaHistoryWindow({
         }
       } catch (err) {}
     }
-    console.log('Q&A History companion window displayed stealthily (showInactive)');
+    console.log(`Q&A History companion window ready (autoShow=${autoShow})`);
   });
 
   qaWindow.on('closed', () => {

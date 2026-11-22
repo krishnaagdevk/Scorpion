@@ -221,6 +221,7 @@ async function startApplication() {
   ipcMain.handle('mobile-server-get-status', () => mobileServer.getStatus());
 
   qaManager.registerIpc(ipcMain);
+  qaManager.ensureQaWindowCreated();
 
   ipcMain.handle('run-system-readiness-checks', async () => {
     return runAllReadinessChecks(app, appState);

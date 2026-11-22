@@ -294,7 +294,10 @@ class CliAgentService {
   }
 
   async answerQuestion(question, options = {}) {
-    const prompt = buildAnswerQuestionPrompt({ contextString: this.getContextString(), question, programmingLanguage: this.programmingLanguage });
+    const contextString = typeof options.contextString === 'string' && options.contextString.trim()
+      ? options.contextString
+      : this.getContextString();
+    const prompt = buildAnswerQuestionPrompt({ contextString, question, programmingLanguage: this.programmingLanguage });
     const result = await this.generateText(prompt, { onChunk: options.onChunk });
     this.addToHistory('user', question);
     this.addToHistory('assistant', result);

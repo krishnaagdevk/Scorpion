@@ -550,24 +550,48 @@ function registerAssistantIpc({
     }
   });
 
-  ipcMain.handle('answer-question', async (_event, question) => {
+  ipcMain.handle('answer-question', async (_event, payload) => {
+    const question = typeof payload === 'string' ? payload : (payload?.question || '');
+    const actionId = (typeof payload === 'object' && payload?.actionId) ? payload.actionId : 'answerQuestion';
+    const contextString = typeof payload?.contextString === 'string' ? payload.contextString : '';
+
     try {
       assemblyAiService.flushAllSttHistoryBuffers('pre-answer');
       if (geminiRuntime.getActiveAiProvider() === 'gemini' && !geminiRuntime.hasApiKeys()) {
         throw new Error('No Gemini API key configured. Add it in Settings.');
       }
 
+      const qaId = qaManager?.recordQuestion({
+        question: question || 'Direct Question (/btw)',
+        source: 'manual',
+        sessionSummary: ''
+      });
+
+      const onChunk = ({ text, index }) => {
+        sendToRenderer('ai-stream-chunk', { actionId, text, index });
+        if (qaId) {
+          qaManager?.appendChunk(qaId, text);
+        }
+      };
+      sendToRenderer('ai-stream-start', { actionId });
+
       const answer = await geminiRuntime.executeWithKeyFailover((geminiService) => {
         if (!geminiService) {
           throw new Error('AI service not initialized');
         }
 
-        return geminiService.answerQuestion(question);
+        return geminiService.answerQuestion(question, { contextString, onChunk });
       });
 
+      if (qaId && answer) {
+        qaManager?.finalizeAnswer(qaId, answer);
+      }
+
+      sendToRenderer('ai-stream-end', { actionId });
       return { success: true, answer };
     } catch (error) {
       console.error('Error answering question:', error);
+      sendToRenderer('ai-stream-end', { actionId });
       return { success: false, error: mapGeminiErrorMessage(error, 'Failed to answer question') };
     }
   });

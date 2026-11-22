@@ -62,6 +62,17 @@ test('createQaManager records questions, streams chunks, and completes answers',
   const restoreRes = qaManager.restoreItems([{ id: id2, question: 'Test Q2', answer: 'Answer 2' }]);
   assert.equal(restoreRes.success, true);
   assert.equal(qaManager.getHistory().length, 1);
+
+  // Test manual /btw question recording and streaming
+  const manualId = qaManager.recordQuestion({ question: 'Explain merge sort', source: 'manual' });
+  assert.ok(manualId);
+  qaManager.appendChunk(manualId, '**Say this:** "Merge sort is a divide-and-conquer algorithm with O(n log n) time."');
+  qaManager.finalizeAnswer(manualId, '**Say this:** "Merge sort is a divide-and-conquer algorithm with O(n log n) time."\n\n**Complexity:** Time: O(n log n), Space: O(n)');
+  const manualItem = qaManager.getHistory().find(i => i.id === manualId);
+  assert.ok(manualItem);
+  assert.equal(manualItem.source, 'manual');
+  assert.equal(manualItem.status, 'completed');
+  assert.ok(manualItem.answer.includes('O(n log n)'));
 });
 
 test('windowController synchronizes opacity and emergency hide to companion windows', () => {

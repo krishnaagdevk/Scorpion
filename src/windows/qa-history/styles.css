@@ -399,19 +399,24 @@ body.window-resizing * {
 }
 
 .qa-feed.flashcard-mode .teleprompter-para {
-  display: none;
+  display: block;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #f1f5f9;
+  margin: 6px 0;
 }
 
 .qa-feed.flashcard-mode .teleprompter-section-header {
-  margin: 6px 0 3px 0;
+  margin: 8px 0 4px 0;
 }
 
-.qa-feed.flashcard-mode .teleprompter-bullet-item:nth-child(n+4) {
-  display: none;
+.qa-feed.flashcard-mode .teleprompter-bullet-item {
+  display: flex;
 }
 
 .qa-feed.flashcard-mode .teleprompter-callout-card {
-  display: none;
+  display: block;
+  margin: 8px 0;
 }
 
 /* Main Q&A Feed */

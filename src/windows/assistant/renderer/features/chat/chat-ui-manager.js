@@ -14,9 +14,30 @@ export function createChatUiManager({
     isAutoScrollEnabled = () => true,
     onMessageSubmitted
 }) {
-    function formatResponse(text) {
+    function autoRepairIncompleteMarkdown(text) {
         if (!text) return '';
-        let formatted = String(text)
+        let sanitized = String(text);
+
+        // Check for unclosed code fence (odd count of ```)
+        const codeFences = (sanitized.match(/```/g) || []).length;
+        if (codeFences % 2 !== 0) {
+            sanitized += '\n```';
+        }
+
+        // Check for unclosed bold markers (odd count of **)
+        const boldMarkers = (sanitized.match(/\*\*/g) || []).length;
+        if (boldMarkers % 2 !== 0) {
+            sanitized += '**';
+        }
+
+        return sanitized;
+    }
+
+    function formatResponse(text, isStreaming = false) {
+        if (!text) return '';
+        const workingText = isStreaming ? autoRepairIncompleteMarkdown(text) : String(text);
+
+        let formatted = workingText
             .replace(/```(\w+)?\n([\s\S]*?)```/g, (_m, lang, code) => {
                 const displayLang = lang || 'code';
                 return `<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang">${displayLang}</span><button class="copy-code-btn" type="button">Copy Code</button></div><pre><code class="language-${displayLang}">${code}</code></pre></div>`;
@@ -36,7 +57,19 @@ export function createChatUiManager({
             '<div class="teleprompter-question"><span class="teleprompter-badge">🎯 Question</span><span class="teleprompter-qtext">$1</span></div>'
         );
 
-        return formatted.replace(/\n/g, '<br>');
+        // Teleprompter /btw Quick Answer detected
+        formatted = formatted.replace(
+            /(?:<strong>)?💬\s*\/btw\s*(?:Quick Answer)?:?(?:<\/strong>)?:?/i,
+            '<div class="teleprompter-say-header"><span class="say-icon">💬</span><span class="btw-badge">/btw Quick Answer</span></div>'
+        );
+
+        formatted = formatted.replace(/\n/g, '<br>');
+
+        if (isStreaming) {
+            formatted += '<span class="streaming-cursor" aria-hidden="true"></span>';
+        }
+
+        return formatted;
     }
 
     function isChatNearBottom(threshold = 28) {
@@ -179,7 +212,8 @@ export function createChatUiManager({
         chatManualSend.disabled = String(chatManualInput.value || '').trim().length === 0;
     }
 
-    function updateChatMessageContent(messageId, newContent) {
+    function updateChatMessageContent(messageId, newContent, options = {}) {
+        const isStreaming = Boolean(options?.isStreaming);
         const record = messageStore.findById(messageId);
         if (record) {
             record.content = newContent;
@@ -194,11 +228,68 @@ export function createChatUiManager({
         if (!contentEl) return;
 
         const shouldAutoScroll = isChatNearBottom();
-        contentEl.innerHTML = formatResponse(newContent);
+        contentEl.innerHTML = formatResponse(newContent, isStreaming);
 
         if (shouldAutoScroll && isAutoScrollEnabled()) {
             chatMessagesElement.scrollTop = chatMessagesElement.scrollHeight;
         }
+    }
+
+    function createStreamingSession(messageId) {
+        let targetText = '';
+        let displayedText = '';
+        let animFrameId = null;
+        let isFinalized = false;
+
+        function tick() {
+            if (displayedText.length < targetText.length) {
+                const remaining = targetText.length - displayedText.length;
+                // High-performance streaming for live interviews:
+                // Instantly catch up with streamed tokens (at least 20-50 chars per frame, or entire backlog if > 150)
+                const step = remaining > 150 ? remaining : (remaining > 50 ? 30 : (remaining > 15 ? 15 : remaining));
+                const nextLength = Math.min(targetText.length, displayedText.length + step);
+                displayedText = targetText.slice(0, nextLength);
+
+                const stillStreaming = !isFinalized || displayedText.length < targetText.length;
+                updateChatMessageContent(messageId, displayedText, { isStreaming: stillStreaming });
+
+                animFrameId = requestAnimationFrame(tick);
+            } else if (isFinalized) {
+                // Done rendering complete response, remove blinking streaming cursor
+                updateChatMessageContent(messageId, targetText, { isStreaming: false });
+                animFrameId = null;
+            } else {
+                animFrameId = null;
+            }
+        }
+
+        function appendChunk(deltaText) {
+            if (!deltaText) return;
+            targetText += deltaText;
+            if (!animFrameId) {
+                animFrameId = requestAnimationFrame(tick);
+            }
+        }
+
+        function complete(finalText) {
+            isFinalized = true;
+            if (typeof finalText === 'string' && finalText.length > 0) {
+                targetText = finalText;
+            }
+            if (!animFrameId) {
+                animFrameId = requestAnimationFrame(tick);
+            }
+        }
+
+        function abort() {
+            if (isFinalized) return;
+            if (animFrameId) {
+                cancelAnimationFrame(animFrameId);
+                animFrameId = null;
+            }
+        }
+
+        return { appendChunk, complete, abort };
     }
 
     function submitManualContextMessage() {
@@ -216,7 +307,7 @@ export function createChatUiManager({
         addMonitorLog?.('info', 'manual-context-added', 'Manual question added', 'mic', {
             chars: text.length
         });
-        showFeedback?.('Evaluating with Antigravity...', 'info');
+        showFeedback?.('Processing parallel /btw answer...', 'info');
 
         chatManualInput.value = '';
         autoResizeManualInput();
@@ -231,6 +322,7 @@ export function createChatUiManager({
     return {
         addChatMessage,
         updateChatMessageContent,
+        createStreamingSession,
         autoResizeManualInput,
         submitManualContextMessage,
         updateManualComposerState,

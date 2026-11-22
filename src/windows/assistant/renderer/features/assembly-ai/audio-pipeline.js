@@ -1,4 +1,4 @@
-﻿import { normalizeSource } from './source-state.js';
+import { normalizeSource } from './source-state.js';
 
 const TARGET_SAMPLE_RATE = 16000;
 const TARGET_FRAME_MS = 100;
@@ -185,6 +185,21 @@ export function createAudioPipeline({ sendAudioChunk, addMonitorLog }) {
     await ensureWorkletModule(context);
 
     const src = context.createMediaStreamSource(stream);
+
+    // Audio Restoration Node 1: High-pass biquad filter (80Hz cut-off) to strip mechanical rumble, AC hum, and sub-bass vibration
+    const highPassFilter = context.createBiquadFilter();
+    highPassFilter.type = 'highpass';
+    highPassFilter.frequency.value = 80;
+    highPassFilter.Q.value = 0.707;
+
+    // Audio Restoration Node 2: Dynamic Compressor Node to normalize quiet remote audio and prevent clipping
+    const compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = -24; // dB
+    compressor.knee.value = 12; // dB
+    compressor.ratio.value = 4; // 4:1 compression
+    compressor.attack.value = 0.003; // 3ms
+    compressor.release.value = 0.25; // 250ms
+
     const node = new AudioWorkletNode(context, 'pcm-capture-processor', {
       numberOfInputs: 1,
       numberOfOutputs: 1,
@@ -209,7 +224,10 @@ export function createAudioPipeline({ sendAudioChunk, addMonitorLog }) {
       }
     };
 
-    src.connect(node);
+    // Filter Graph: Source -> HighPassFilter -> DynamicsCompressor -> AudioWorklet -> SilentGain -> Destination
+    src.connect(highPassFilter);
+    highPassFilter.connect(compressor);
+    compressor.connect(node);
     node.connect(silentGain);
     silentGain.connect(context.destination);
 
@@ -222,15 +240,9 @@ export function createAudioPipeline({ sendAudioChunk, addMonitorLog }) {
         }
         try {
           src.disconnect();
-        } catch (_) {
-          // no-op
-        }
-        try {
+          highPassFilter.disconnect();
+          compressor.disconnect();
           node.disconnect();
-        } catch (_) {
-          // no-op
-        }
-        try {
           silentGain.disconnect();
         } catch (_) {
           // no-op

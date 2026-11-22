@@ -9,6 +9,14 @@
 const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+
+const ISOLATED_AGY_WORKSPACE = path.join(os.tmpdir(), 'scorpion-agy-workspace');
+if (!fs.existsSync(ISOLATED_AGY_WORKSPACE)) {
+  try {
+    fs.mkdirSync(ISOLATED_AGY_WORKSPACE, { recursive: true });
+  } catch (e) {}
+}
 const {
   resolveProgrammingLanguage,
   getDefaultAntigravityModel,
@@ -46,7 +54,7 @@ class AntigravityService {
     this.requestQueue = [];
     this.isProcessing = false;
     this.lastRequestTime = 0;
-    this.minRequestInterval = 100;
+    this.minRequestInterval = 0;
     this.maxRetries = 2;
 
     // Interface compat
@@ -62,6 +70,7 @@ class AntigravityService {
     this.daemonReady = false;
     this.daemonInitPromise = null;
     this.activeTurn = null;
+    this.isWarm = false;
 
     console.log(`AntigravityService initialized using binary: ${this.agyCmd} (model: ${this.modelName})`);
 
@@ -128,6 +137,7 @@ class AntigravityService {
       try {
         const args = [
           '--model', this.modelName,
+          '--dangerously-skip-permissions',
           '--input-format', 'stream-json',
           '--output-format', 'stream-json',
           '--disable-slash-commands'
@@ -138,6 +148,7 @@ class AntigravityService {
 
         const child = spawn(this.agyCmd, args, {
           stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: ISOLATED_AGY_WORKSPACE,
           shell: false,
           windowsHide: true
         });
@@ -161,6 +172,16 @@ class AntigravityService {
                 this.daemonReady = true;
                 this.daemonInitPromise = null;
                 resolve(child);
+
+                // Proactive background warm-up: prime connection so subsequent turns are ultra-fast
+                if (process.env.NODE_ENV !== 'test' && !this.isWarm && !this.activeTurn) {
+                  try {
+                    child.stdin.write(JSON.stringify({
+                      event: 'user',
+                      message: { content: 'ok' }
+                    }) + '\n');
+                  } catch (e) {}
+                }
               }
             } catch (err) {
               // Ignore non-json or fragmented logs
@@ -206,7 +227,13 @@ class AntigravityService {
   }
 
   _handleDaemonMessage(data) {
-    if (!this.activeTurn) return;
+    if (!this.activeTurn) {
+      if (data.event === 'result' && !this.isWarm) {
+        this.isWarm = true;
+        console.log('[Antigravity] Daemon background warmup complete. Ready for instant turns.');
+      }
+      return;
+    }
 
     if (data.event === 'step_update') {
       const step = data.step_update;
@@ -317,15 +344,16 @@ class AntigravityService {
       args.push('--model', this.modelName);
     }
     args.push('--disable-slash-commands');
+    args.push('--dangerously-skip-permissions');
     if (!/(?:-low|-medium|-high)$/i.test(this.modelName)) {
       args.push('--effort', 'low');
     }
 
-    const safePrompt = typeof prompt === 'string' && prompt.length > 25000
-      ? prompt.slice(prompt.length - 25000)
+    const safePrompt = typeof prompt === 'string' && prompt.length > 20000
+      ? prompt.slice(prompt.length - 20000)
       : prompt;
 
-    args.push('--print', safePrompt, '--output-format', 'text');
+    args.push('--print', safePrompt, '--output-format', 'stream-json');
     return args;
   }
 
@@ -337,6 +365,7 @@ class AntigravityService {
       const args = this._buildAgyArgs(prompt);
       const child = spawn(this.agyCmd, args, {
         stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: ISOLATED_AGY_WORKSPACE,
         shell: false,
         windowsHide: true
       });
@@ -349,7 +378,23 @@ class AntigravityService {
         }
       });
 
-      child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+      child.stdout.on('data', (chunk) => {
+        const text = chunk.toString();
+        for (const line of text.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const data = JSON.parse(trimmed);
+            if (data.event === 'result') {
+              stdout = data.result?.response || stdout;
+            } else if (data.event === 'step_update' && data.step_update?.text_delta) {
+              stdout += data.step_update.text_delta;
+            }
+          } catch (e) {
+            if (!trimmed.startsWith('{')) stdout += trimmed;
+          }
+        }
+      });
       child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
 
       child.on('close', (code) => {
@@ -367,10 +412,12 @@ class AntigravityService {
       let fullText = '';
       let chunkIndex = 0;
       let stderr = '';
+      let stdoutBuffer = '';
 
       const args = this._buildAgyArgs(prompt);
       const child = spawn(this.agyCmd, args, {
         stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: ISOLATED_AGY_WORKSPACE,
         shell: false,
         windowsHide: true
       });
@@ -384,12 +431,38 @@ class AntigravityService {
       });
 
       child.stdout.on('data', (chunk) => {
-        const text = chunk.toString();
-        if (text) {
-          fullText += text;
-          chunkIndex += 1;
-          if (!request._firstChunkSent) request._firstChunkSent = true;
-          request.onChunk({ text, index: chunkIndex });
+        stdoutBuffer += chunk.toString();
+        const lines = stdoutBuffer.split('\n');
+        stdoutBuffer = lines.pop();
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const data = JSON.parse(trimmed);
+            if (data.event === 'step_update') {
+              const delta = data.step_update?.text_delta;
+              if (delta) {
+                fullText += delta;
+                chunkIndex += 1;
+                if (!request._firstChunkSent) request._firstChunkSent = true;
+                if (typeof request.onChunk === 'function') {
+                  request.onChunk({ text: delta, index: chunkIndex });
+                }
+              }
+            } else if (data.event === 'result') {
+              const res = data.result?.response || fullText;
+              fullText = res;
+            }
+          } catch (e) {
+            if (!line.startsWith('{')) {
+              fullText += line;
+              chunkIndex += 1;
+              if (typeof request.onChunk === 'function') {
+                request.onChunk({ text: line, index: chunkIndex });
+              }
+            }
+          }
         }
       });
 
@@ -421,16 +494,21 @@ class AntigravityService {
   }
 
   async generateText(prompt, options = {}) {
-    return new Promise((resolve, reject) => {
-      this.requestQueue.push({
-        type: 'text',
-        data: prompt,
-        resolve,
-        reject,
-        onChunk: typeof options.onChunk === 'function' ? options.onChunk : null
-      });
-      this.processQueue();
-    });
+    // If the warm daemon is ready and idle, execute immediately on the zero-cold-boot daemon
+    if (this.daemonReady && !this.activeTurn) {
+      try {
+        return await this._runDaemonTurn(prompt, options);
+      } catch (err) {
+        console.warn('[Antigravity] Daemon turn failed, falling back:', err.message);
+      }
+    }
+
+    // If daemon is busy with another turn (e.g. background copilot) or not ready,
+    // execute immediately in parallel without blocking in a sequential queue!
+    if (typeof options.onChunk === 'function') {
+      return await this._runStreaming(prompt, options);
+    }
+    return await this._run(prompt);
   }
 
   async generateMultimodal(parts, options = {}) {
@@ -530,8 +608,11 @@ class AntigravityService {
   }
 
   async answerQuestion(question, options = {}) {
+    const contextString = typeof options.contextString === 'string' && options.contextString.trim()
+      ? options.contextString
+      : this.getContextString();
     const prompt = buildAnswerQuestionPrompt({
-      contextString: this.getContextString(),
+      contextString,
       question,
       programmingLanguage: this.programmingLanguage
     });
