@@ -6,6 +6,9 @@ let tesseractModule = null;
 function getCreateWorker() {
   if (!tesseractModule) {
     try {
+      require('regenerator-runtime/runtime');
+    } catch (_) {}
+    try {
       tesseractModule = require('tesseract.js');
     } catch (err) {
       console.warn('OCR tesseract.js not available:', err.message);

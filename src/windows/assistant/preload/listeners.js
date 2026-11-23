@@ -26,6 +26,11 @@ function createEventActions(ipcRenderer) {
     label: 'onClickThroughModeChanged'
   });
 
+  const onPointerVisibilityChanged = createEventListener(ipcRenderer, {
+    channel: 'set-pointer-visibility',
+    label: 'onPointerVisibilityChanged'
+  });
+
   const onEmergencyClear = createEventListener(ipcRenderer, {
     channel: 'emergency-clear',
     label: 'onEmergencyClear'
@@ -133,7 +138,8 @@ function createEventActions(ipcRenderer) {
     onSttDebug: (callback) => rawOnSttDebug((data) => callback(data || {})),
     onMobileServerStatus,
     onClearFromMobile,
-    onClickThroughModeChanged
+    onClickThroughModeChanged,
+    onPointerVisibilityChanged
   };
 }
 

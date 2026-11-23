@@ -171,6 +171,12 @@ const KEYBOARD_SHORTCUTS = [
     accelerator: 'Alt+Shift+P'
   },
   {
+    id: 'togglePointerVisibility',
+    buttonLabel: 'Pointer Stealth',
+    description: 'Toggle mouse pointer visibility (hidden from interviewer on screen share, visible only to you)',
+    accelerator: 'Alt+Shift+M'
+  },
+  {
     id: 'dockToTop',
     buttonLabel: 'Dock to Top',
     description: 'Dock HUD to thin top bar above your IDE / code editor',

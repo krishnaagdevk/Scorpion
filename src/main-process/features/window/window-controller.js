@@ -29,6 +29,7 @@ function createWindowController({
   let lastRecoveryReloadAt = 0;
   let activeWindowOpacityLevel = DEFAULT_WINDOW_OPACITY_LEVEL;
   let clickThroughEnabled = false;
+  let pointerMode = 'stealth'; // 'stealth' (default: hidden from share, visible to user) | 'hidden' (hidden from both) | 'system' (standard)
   let isPanicActive = false;
   let screenShareShieldActive = false;
   let savedOpacityBeforeShield = DEFAULT_WINDOW_OPACITY_LEVEL;
@@ -201,6 +202,16 @@ function createWindowController({
 
     contents.on('did-finish-load', () => {
       isRecoveryReloadInProgress = false;
+      try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('set-pointer-visibility', {
+            mode: pointerMode,
+            isStealth: pointerMode === 'stealth',
+            isHidden: pointerMode === 'hidden',
+            isSystem: pointerMode === 'system'
+          });
+        }
+      } catch (err) {}
     });
   }
 
@@ -490,6 +501,45 @@ function createWindowController({
     return clickThroughEnabled;
   }
 
+  function getPointerMode() {
+    return pointerMode;
+  }
+
+  function setPointerMode(mode) {
+    const validModes = ['stealth', 'hidden', 'system'];
+    if (validModes.includes(mode)) {
+      pointerMode = mode;
+    } else {
+      pointerMode = 'stealth';
+    }
+
+    const payload = {
+      mode: pointerMode,
+      isStealth: pointerMode === 'stealth',
+      isHidden: pointerMode === 'hidden',
+      isSystem: pointerMode === 'system'
+    };
+
+    sendToRenderer('set-pointer-visibility', payload);
+
+    const companionWindows = getCompanionWindows();
+    for (const win of companionWindows) {
+      try {
+        if (win.webContents && !win.webContents.isDestroyed()) {
+          win.webContents.send('set-pointer-visibility', payload);
+        }
+      } catch (err) {}
+    }
+
+    return { success: true, mode: pointerMode };
+  }
+
+  function togglePointerVisibility() {
+    // Toggles between stealth (visible to user, hidden on share) and hidden (zero distraction)
+    const nextMode = pointerMode === 'stealth' ? 'hidden' : 'stealth';
+    return setPointerMode(nextMode);
+  }
+
   function dockToTop() {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return { error: 'Main window not available' };
@@ -597,6 +647,20 @@ function createWindowController({
       } catch (err) {}
     }
 
+    registerShortcut('togglePointerVisibility', () => {
+      togglePointerVisibility();
+    });
+
+    // Also register alternative aliases for stealth pointer toggle
+    const pointerAliases = ['Control+Alt+M', 'CommandOrControl+Alt+M'];
+    for (const alias of pointerAliases) {
+      try {
+        globalShortcut.register(alias, () => {
+          togglePointerVisibility();
+        });
+      } catch (err) {}
+    }
+
     registerShortcut('dockToTop', () => {
       dockToTop();
     });
@@ -648,14 +712,17 @@ function createWindowController({
     isClickThroughEnabled,
     isPanicModeActive,
     isScreenShareShieldActive,
+    getPointerMode,
     markVisible,
     registerShortcuts,
     setClickThrough,
+    setPointerMode,
     setWindowSizePreset,
     setWindowBounds,
     setWindowOpacityLevel,
     toggleClickThrough,
     togglePanicMode: emergencyHide,
+    togglePointerVisibility,
     toggleScreenShareShield,
     toggleStealthMode,
     unregisterShortcuts

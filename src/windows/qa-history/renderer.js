@@ -1174,6 +1174,13 @@ async function init() {
       }
     }).catch(() => {});
   }
+  if (window.StealthCursor?.initStealthCursor) {
+    window.StealthCursor.initStealthCursor({
+      getInitialStatus: () => window.qaApi?.getPointerVisibilityStatus?.(),
+      toggleApi: () => window.qaApi?.togglePointerVisibility?.(),
+      onPointerVisibilityChanged: (cb) => window.qaApi?.onPointerVisibilityChanged?.(cb)
+    });
+  }
   if (window.qaApi?.getQaHistory) {
     try {
       const history = await window.qaApi.getQaHistory();

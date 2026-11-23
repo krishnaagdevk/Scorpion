@@ -16,6 +16,13 @@ contextBridge.exposeInMainWorld('qaApi', {
     ipcRenderer.on('set-click-through-mode', handler);
     return () => ipcRenderer.removeListener('set-click-through-mode', handler);
   },
+  togglePointerVisibility: (mode) => ipcRenderer.invoke('toggle-pointer-visibility', mode),
+  getPointerVisibilityStatus: () => ipcRenderer.invoke('get-pointer-visibility-status'),
+  onPointerVisibilityChanged: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('set-pointer-visibility', handler);
+    return () => ipcRenderer.removeListener('set-pointer-visibility', handler);
+  },
   onQaItemAdded: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('qa-history-item-added', handler);

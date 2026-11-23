@@ -47,7 +47,8 @@
     "asarUnpack": [
       "node_modules/screenshot-desktop/**/*",
       "node_modules/tesseract.js/**/*",
-      "node_modules/tesseract.js-core/**/*"
+      "node_modules/tesseract.js-core/**/*",
+      "node_modules/regenerator-runtime/**/*"
     ],
     "extraResources": [
       {

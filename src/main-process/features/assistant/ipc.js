@@ -242,6 +242,24 @@ function registerAssistantIpc({
     };
   });
 
+  ipcMain.handle('toggle-pointer-visibility', (_event, mode) => {
+    if (typeof mode === 'string') {
+      return windowController.setPointerMode?.(mode) ?? { success: true, mode };
+    }
+    return windowController.togglePointerVisibility?.() ?? { success: true, mode: 'stealth' };
+  });
+
+  ipcMain.handle('get-pointer-visibility-status', () => {
+    const mode = windowController.getPointerMode ? windowController.getPointerMode() : 'stealth';
+    return {
+      success: true,
+      mode,
+      isStealth: mode === 'stealth',
+      isHidden: mode === 'hidden',
+      isSystem: mode === 'system'
+    };
+  });
+
   ipcMain.handle('dock-to-top', () => {
     return windowController.dockToTop();
   });

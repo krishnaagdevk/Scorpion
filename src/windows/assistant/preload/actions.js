@@ -20,6 +20,18 @@ function createInvokeActions(ipcRenderer) {
       fallback: () => ({ success: false, clickThroughEnabled: false })
     }),
 
+    togglePointerVisibility: invokeWithFallback(ipcRenderer, {
+      channel: 'toggle-pointer-visibility',
+      label: 'togglePointerVisibility',
+      fallback: (error) => ({ error: error.message })
+    }),
+
+    getPointerVisibilityStatus: invokeWithFallback(ipcRenderer, {
+      channel: 'get-pointer-visibility-status',
+      label: 'getPointerVisibilityStatus',
+      fallback: () => ({ success: true, mode: 'stealth', isStealth: true })
+    }),
+
     dockToTop: invokeWithFallback(ipcRenderer, {
       channel: 'dock-to-top',
       label: 'dockToTop',

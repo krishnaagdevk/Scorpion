@@ -241,8 +241,33 @@ const oaModePill = document.getElementById('oa-mode-pill');
 const qaWindowPill = document.getElementById('qa-window-pill');
 const clickThroughPill = document.getElementById('click-through-pill');
 const clickThroughPillLabel = document.getElementById('click-through-pill-label');
+const pointerStealthPill = document.getElementById('pointer-stealth-pill');
+const pointerStealthPillLabel = document.getElementById('pointer-stealth-pill-label');
 const systemChecksPill = document.getElementById('system-checks-pill');
 let isClickThroughActive = false;
+let activePointerMode = 'stealth';
+let stealthCursorInstance = null;
+
+function paintPointerStealthPill(mode) {
+    activePointerMode = mode || 'stealth';
+    if (!pointerStealthPill) return;
+
+    pointerStealthPill.classList.remove('on', 'hidden-mode', 'system-mode');
+
+    if (activePointerMode === 'stealth') {
+        pointerStealthPill.classList.add('on');
+        if (pointerStealthPillLabel) pointerStealthPillLabel.textContent = 'Pointer: Stealth';
+        pointerStealthPill.setAttribute('data-tooltip', 'Pointer Stealth (Alt+Shift+M): Hidden from interviewer on screen share, visible only to you');
+    } else if (activePointerMode === 'hidden') {
+        pointerStealthPill.classList.add('hidden-mode');
+        if (pointerStealthPillLabel) pointerStealthPillLabel.textContent = 'Pointer: Hidden';
+        pointerStealthPill.setAttribute('data-tooltip', 'Pointer Hidden (Alt+Shift+M): Mouse pointer hidden for zero distraction. Press Alt+Shift+M to show');
+    } else {
+        pointerStealthPill.classList.add('system-mode');
+        if (pointerStealthPillLabel) pointerStealthPillLabel.textContent = 'Pointer: System';
+        pointerStealthPill.setAttribute('data-tooltip', 'Pointer System: Standard OS cursor visible');
+    }
+}
 
 function paintClickThroughPill() {
     if (!clickThroughPill) return;
@@ -773,6 +798,33 @@ async function init() {
             toggleClickThroughMode();
         });
         paintClickThroughPill();
+    }
+    if (pointerStealthPill) {
+        pointerStealthPill.addEventListener('click', async () => {
+            if (stealthCursorInstance) {
+                await stealthCursorInstance.toggle();
+            } else if (window.electronAPI?.togglePointerVisibility) {
+                await window.electronAPI.togglePointerVisibility();
+            }
+        });
+        paintPointerStealthPill('stealth');
+    }
+    if (window.StealthCursor?.initStealthCursor) {
+        stealthCursorInstance = window.StealthCursor.initStealthCursor({
+            onModeChange: (mode) => {
+                paintPointerStealthPill(mode);
+                if (mode === 'stealth') {
+                    showFeedback('🎯 Pointer: Stealth (Visible to you, Hidden from Screen Share)', 'info');
+                } else if (mode === 'hidden') {
+                    showFeedback('🚫 Pointer: Hidden (Zero Distraction)', 'info');
+                } else if (mode === 'system') {
+                    showFeedback('🖱️ Pointer: System Standard', 'info');
+                }
+            },
+            getInitialStatus: () => window.electronAPI?.getPointerVisibilityStatus?.(),
+            toggleApi: () => window.electronAPI?.togglePointerVisibility?.(),
+            onPointerVisibilityChanged: (cb) => window.electronAPI?.onPointerVisibilityChanged?.(cb)
+        });
     }
     if (window.electronAPI?.onClickThroughModeChanged) {
         window.electronAPI.onClickThroughModeChanged((enabled) => {

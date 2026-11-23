@@ -1,4 +1,8 @@
-﻿const { startApplication } = require('./main-process/start-application');
+﻿try {
+  require('regenerator-runtime/runtime');
+} catch (_) {}
+
+const { startApplication } = require('./main-process/start-application');
 
 startApplication().catch((error) => {
   console.error('Fatal startup failure:', error);
