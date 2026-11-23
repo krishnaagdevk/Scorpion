@@ -1,4 +1,4 @@
-﻿try {
+try {
   require('regenerator-runtime/runtime');
 } catch (_) {}
 
