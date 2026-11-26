@@ -20,7 +20,8 @@ if (!fs.existsSync(ISOLATED_AGY_WORKSPACE)) {
 const {
   resolveProgrammingLanguage,
   getDefaultAntigravityModel,
-  resolveAntigravityModel
+  resolveAntigravityModel,
+  setDiscoveredAntigravityModels
 } = require('../../config');
 const {
   buildAnswerQuestionPrompt,
@@ -135,14 +136,17 @@ class AntigravityService {
 
     this.daemonInitPromise = new Promise((resolve, reject) => {
       try {
-        const args = [
-          '--model', this.modelName,
+        const args = [];
+        if (this.modelName && this.modelName !== 'antigravity') {
+          args.push('--model', this.modelName);
+        }
+        args.push(
           '--dangerously-skip-permissions',
           '--input-format', 'stream-json',
           '--output-format', 'stream-json',
           '--disable-slash-commands'
-        ];
-        if (!/(?:-low|-medium|-high)$/i.test(this.modelName)) {
+        );
+        if (this.modelName && !/(?:-low|-medium|-high|-xhigh)$/i.test(this.modelName)) {
           args.push('--effort', 'low');
         }
 
@@ -345,7 +349,7 @@ class AntigravityService {
     }
     args.push('--disable-slash-commands');
     args.push('--dangerously-skip-permissions');
-    if (!/(?:-low|-medium|-high)$/i.test(this.modelName)) {
+    if (this.modelName && !/(?:-low|-medium|-high|-xhigh)$/i.test(this.modelName)) {
       args.push('--effort', 'low');
     }
 
@@ -633,6 +637,73 @@ class AntigravityService {
   }
 }
 
+// Utility: parse `agy models` output into [{ id, name }]
+function parseAntigravityModelsOutput(rawOutput) {
+  const text = String(rawOutput || '');
+  const models = [];
+  const seen = new Set();
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (/^fetching\b/i.test(line) || /^available models/i.test(line) || /^usage:/i.test(line)) {
+      continue;
+    }
+
+    // Format: "<id>\t<displayName>" or "<id>  <displayName>" or "<id>"
+    const tabIdx = line.indexOf('\t');
+    let id = '';
+    let name = '';
+    if (tabIdx !== -1) {
+      id = line.slice(0, tabIdx).trim();
+      name = line.slice(tabIdx + 1).trim();
+    } else {
+      const match = line.match(/^([^\s]+)(?:\s{2,}(.+))?$/);
+      if (match) {
+        id = match[1].trim();
+        name = (match[2] || '').trim();
+      }
+    }
+
+    if (!id || !/^[a-z0-9._:/-]+$/i.test(id) || seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    models.push({ id, name: name || id });
+  }
+
+  return models;
+}
+
+// Utility: dynamically query `agy models` and update runtime model cache
+async function fetchAntigravityModels() {
+  const cmd = resolveAgyCommand();
+  return new Promise((resolve) => {
+    const child = execFile(
+      cmd,
+      ['models'],
+      { shell: false, windowsHide: true, timeout: 15000 },
+      (err, stdout, stderr) => {
+        if (err) {
+          console.warn('[Antigravity] Dynamic model discovery failed:', err.message);
+          resolve([]);
+          return;
+        }
+        const parsed = parseAntigravityModelsOutput(`${stdout || ''}\n${stderr || ''}`);
+        if (parsed.length > 0) {
+          setDiscoveredAntigravityModels(parsed);
+        }
+        resolve(parsed);
+      }
+    );
+    child.on('error', (err) => {
+      console.warn('[Antigravity] Dynamic model discovery spawn error:', err.message);
+      resolve([]);
+    });
+  });
+}
+
 // Utility: check if agy CLI is installed
 async function isAntigravityInstalled() {
   const cmd = resolveAgyCommand();
@@ -646,3 +717,6 @@ async function isAntigravityInstalled() {
 
 module.exports = AntigravityService;
 module.exports.isAntigravityInstalled = isAntigravityInstalled;
+module.exports.fetchAntigravityModels = fetchAntigravityModels;
+module.exports.parseAntigravityModelsOutput = parseAntigravityModelsOutput;
+module.exports.resolveAgyCommand = resolveAgyCommand;

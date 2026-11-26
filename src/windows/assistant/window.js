@@ -156,11 +156,17 @@ function createAssistantWindow({
       }
 
       mainWindow.showInactive();
+      if (typeof mainWindow.setIgnoreMouseEvents === 'function') {
+        mainWindow.setIgnoreMouseEvents(false, { forward: true });
+      }
       console.log('Window shown in inactive mode with transparent background');
     }).catch((error) => {
       console.log('JavaScript execution failed:', error);
       if (!launchHidden) {
         mainWindow.showInactive();
+        if (typeof mainWindow.setIgnoreMouseEvents === 'function') {
+          mainWindow.setIgnoreMouseEvents(false, { forward: true });
+        }
       }
     });
   });

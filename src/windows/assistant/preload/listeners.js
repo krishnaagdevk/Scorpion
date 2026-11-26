@@ -116,6 +116,11 @@ function createEventActions(ipcRenderer) {
     label: 'onClearFromMobile'
   });
 
+  const onOpenCodeSetupStatus = createEventListener(ipcRenderer, {
+    channel: 'opencode-setup-status',
+    label: 'onOpenCodeSetupStatus'
+  });
+
   return {
     onScreenshotTakenStealth,
     onAnalysisStart,
@@ -138,6 +143,7 @@ function createEventActions(ipcRenderer) {
     onSttDebug: (callback) => rawOnSttDebug((data) => callback(data || {})),
     onMobileServerStatus,
     onClearFromMobile,
+    onOpenCodeSetupStatus,
     onClickThroughModeChanged,
     onPointerVisibilityChanged
   };

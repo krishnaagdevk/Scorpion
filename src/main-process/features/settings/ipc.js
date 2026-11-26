@@ -1,3 +1,6 @@
+const { ensureOpenCodeReady, resolveOpenCodeCommand } = require('../../../services/ai/opencode-installer');
+const fs = require('fs');
+
 function registerSettingsIpc({
   ipcMain,
   app,
@@ -14,13 +17,25 @@ function registerSettingsIpc({
   setAssemblyAiSpeechModel,
   keyboardShortcuts,
   assemblyAiSpeechModels,
-  defaultAssemblyAiSpeechModel
+  defaultAssemblyAiSpeechModel,
+  sendToRenderer
 }) {
   ipcMain.handle('get-settings', () => {
     const appEnvironment = getAppEnvironment();
     const appState = getAppState();
     const geminiApiKey = typeof appState?.geminiApiKey === 'string' ? appState.geminiApiKey : '';
     const assemblyAiApiKey = typeof appState?.assemblyAiApiKey === 'string' ? appState.assemblyAiApiKey : '';
+
+    // Trigger non-blocking background refresh if caches are still empty (never block renderer startup)
+    if ((geminiRuntime.getAntigravityModelEntries?.() || []).length === 0) {
+      geminiRuntime.refreshAntigravityModels?.().catch(() => {});
+    }
+
+    const resolvedOcCmd = resolveOpenCodeCommand();
+    const opencodeInstalled = resolvedOcCmd !== 'opencode' && fs.existsSync(resolvedOcCmd);
+    if (opencodeInstalled && (geminiRuntime.getOpenCodeModelEntries?.() || []).length === 0) {
+      geminiRuntime.refreshOpenCodeModels?.().catch(() => {});
+    }
 
     return {
       aiProvider: geminiRuntime.getActiveAiProvider(),
@@ -31,9 +46,16 @@ function registerSettingsIpc({
       geminiModel: geminiRuntime.getActiveGeminiModel(),
       geminiModels: geminiRuntime.getGeminiModels(),
       defaultGeminiModel: geminiRuntime.getDefaultGeminiModel(),
-      antigravityModel: geminiRuntime.getActiveAntigravityModel?.() || 'gemini-3.8-flash-high',
+      antigravityModel: geminiRuntime.getActiveAntigravityModel?.() || '',
       antigravityModels: geminiRuntime.getAntigravityModels?.() || [],
-      defaultAntigravityModel: geminiRuntime.getDefaultAntigravityModel?.() || 'gemini-3.8-flash-high',
+      antigravityModelEntries: geminiRuntime.getAntigravityModelEntries?.() || [],
+      defaultAntigravityModel: geminiRuntime.getDefaultAntigravityModel?.() || '',
+      opencodeModel: geminiRuntime.getActiveOpenCodeModel?.() || '',
+      opencodeModels: geminiRuntime.getOpenCodeModels?.() || [],
+      opencodeModelEntries: geminiRuntime.getOpenCodeModelEntries?.() || [],
+      freeOpenCodeModels: geminiRuntime.getFreeOpenCodeModels?.() || [],
+      defaultOpenCodeModel: geminiRuntime.getDefaultOpenCodeModel?.() || '',
+      opencodeInstalled,
       ollamaBaseUrl: geminiRuntime.getActiveOllamaBaseUrl(),
       ollamaModel: geminiRuntime.getActiveOllamaModel(),
       defaultOllamaBaseUrl: geminiRuntime.getDefaultOllamaBaseUrl(),
@@ -80,6 +102,50 @@ function registerSettingsIpc({
     }
   });
 
+  ipcMain.handle('refresh-antigravity-models', async () => {
+    try {
+      const result = await geminiRuntime.refreshAntigravityModels?.();
+      return { success: true, ...(result || {}) };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ensure-opencode-ready', async () => {
+    try {
+      const result = await ensureOpenCodeReady({
+        onProgress: (status) => {
+          if (typeof sendToRenderer === 'function') {
+            sendToRenderer('opencode-setup-status', status);
+          }
+        },
+        syncModelsFn: () => geminiRuntime.refreshOpenCodeModels?.()
+      });
+
+      const activeModel = geminiRuntime.getActiveOpenCodeModel?.() || geminiRuntime.getDefaultOpenCodeModel?.() || '';
+      if (result.success && activeModel) {
+        const currentAppState = getAppState?.() || {};
+        if (!currentAppState.opencodeModel) {
+          const updated = saveAppState(app, { opencodeModel: activeModel });
+          setAppState(updated);
+        }
+        if (geminiRuntime.getActiveAiProvider() === 'opencode') {
+          geminiRuntime.initializeOpenCodeService(geminiRuntime.getActiveProgrammingLanguage(), activeModel);
+        }
+      }
+
+      return {
+        ...result,
+        entries: geminiRuntime.getOpenCodeModelEntries?.() || [],
+        freeModels: geminiRuntime.getFreeOpenCodeModels?.() || [],
+        defaultModel: geminiRuntime.getDefaultOpenCodeModel?.() || '',
+        activeModel
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('save-settings', async (_event, settings = {}) => {
     console.log('IPC: save-settings called');
 
@@ -91,6 +157,7 @@ function registerSettingsIpc({
       const nextAssemblyAiApiKey = String(settings.assemblyAiApiKey || '').trim();
       const nextGeminiModel = geminiRuntime.setActiveGeminiModel(settings.geminiModel);
       const nextAntigravityModel = geminiRuntime.setActiveAntigravityModel?.(settings.antigravityModel);
+      const nextOpenCodeModel = geminiRuntime.setActiveOpenCodeModel?.(settings.opencodeModel);
       const nextOllamaBaseUrl = geminiRuntime.setActiveOllamaBaseUrl(settings.ollamaBaseUrl);
       const nextOllamaModel = geminiRuntime.setActiveOllamaModel(settings.ollamaModel);
       const nextCliAgentType = geminiRuntime.setActiveCliAgentType?.(settings.cliAgentType) || 'codex';
@@ -116,6 +183,7 @@ function registerSettingsIpc({
         geminiApiKeyIndex: keyState.activeApiKeyIndex,
         geminiModel: nextGeminiModel,
         antigravityModel: nextAntigravityModel,
+        opencodeModel: nextOpenCodeModel,
         ollamaBaseUrl: nextOllamaBaseUrl,
         ollamaModel: nextOllamaModel,
         cliAgentType: nextCliAgentType,
@@ -148,6 +216,24 @@ function registerSettingsIpc({
       } else if (nextAiProvider === 'antigravity') {
         console.log(`Applied Antigravity AI provider (model: ${nextAntigravityModel})`);
         geminiRuntime.initializeAntigravityService(nextProgrammingLanguage, nextAntigravityModel);
+      } else if (nextAiProvider === 'opencode') {
+        console.log(`Applied OpenCode AI provider (model: ${nextOpenCodeModel || 'auto'})`);
+        geminiRuntime.initializeOpenCodeService(nextProgrammingLanguage, nextOpenCodeModel);
+        ensureOpenCodeReady({
+          onProgress: (status) => {
+            if (typeof sendToRenderer === 'function') {
+              sendToRenderer('opencode-setup-status', status);
+            }
+          },
+          syncModelsFn: () => geminiRuntime.refreshOpenCodeModels?.()
+        }).then((readyRes) => {
+          if (readyRes?.success) {
+            const resolvedModel = geminiRuntime.getActiveOpenCodeModel?.() || geminiRuntime.getDefaultOpenCodeModel?.();
+            if (resolvedModel) {
+              geminiRuntime.initializeOpenCodeService(nextProgrammingLanguage, resolvedModel);
+            }
+          }
+        }).catch(() => {});
       } else if (nextAiProvider === 'codex' || nextAiProvider === 'claude-code') {
         console.log(`Applied CLI agent provider: ${nextCliAgentType}`);
         geminiRuntime.initializeCliAgentService(

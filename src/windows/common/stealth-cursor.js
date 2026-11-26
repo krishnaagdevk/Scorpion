@@ -77,16 +77,19 @@ function initStealthCursor({
 
     if (currentMode === 'stealth') {
       docEl.classList.add('stealth-cursor-mode');
+      document.body?.style?.setProperty?.('cursor', 'none', 'important');
       cursorEl.classList.remove('cursor-hidden');
       if (isInsideWindow) {
         cursorEl.classList.add('cursor-visible');
       }
     } else if (currentMode === 'hidden') {
       docEl.classList.add('stealth-cursor-mode');
+      document.body?.style?.setProperty?.('cursor', 'none', 'important');
       cursorEl.classList.add('cursor-hidden');
       cursorEl.classList.remove('cursor-visible');
     } else if (currentMode === 'system') {
       docEl.classList.remove('stealth-cursor-mode');
+      document.body?.style?.removeProperty?.('cursor');
       cursorEl.classList.add('cursor-hidden');
       cursorEl.classList.remove('cursor-visible');
     }
@@ -138,11 +141,18 @@ function initStealthCursor({
     }
   }
 
-  window.addEventListener('pointermove', handlePointerMove, { passive: true });
-  window.addEventListener('pointerdown', handlePointerDown, { passive: true });
-  window.addEventListener('pointerup', handlePointerUp, { passive: true });
-  window.addEventListener('pointerenter', handlePointerEnter, { passive: true });
-  window.addEventListener('pointerleave', handlePointerLeave, { passive: true });
+  const pointerEventTarget = typeof document.addEventListener === 'function' ? document : window;
+  const boundaryEventTarget = typeof document.documentElement?.addEventListener === 'function'
+    ? document.documentElement
+    : window;
+
+  pointerEventTarget.addEventListener('pointermove', handlePointerMove, { capture: true, passive: true });
+  pointerEventTarget.addEventListener('mousemove', handlePointerMove, { capture: true, passive: true });
+  pointerEventTarget.addEventListener('pointerdown', handlePointerDown, { capture: true, passive: true });
+  pointerEventTarget.addEventListener('pointerup', handlePointerUp, { capture: true, passive: true });
+  boundaryEventTarget.addEventListener('mouseenter', handlePointerEnter, { passive: true });
+  boundaryEventTarget.addEventListener('mouseleave', handlePointerLeave, { passive: true });
+  window.addEventListener('blur', handlePointerLeave, { passive: true });
 
   // Initial default mode
   applyMode('stealth');
@@ -185,11 +195,13 @@ function initStealthCursor({
   }
 
   function destroy() {
-    window.removeEventListener('pointermove', handlePointerMove);
-    window.removeEventListener('pointerdown', handlePointerDown);
-    window.removeEventListener('pointerup', handlePointerUp);
-    window.removeEventListener('pointerenter', handlePointerEnter);
-    window.removeEventListener('pointerleave', handlePointerLeave);
+    pointerEventTarget.removeEventListener('pointermove', handlePointerMove, { capture: true });
+    pointerEventTarget.removeEventListener('mousemove', handlePointerMove, { capture: true });
+    pointerEventTarget.removeEventListener('pointerdown', handlePointerDown, { capture: true });
+    pointerEventTarget.removeEventListener('pointerup', handlePointerUp, { capture: true });
+    boundaryEventTarget.removeEventListener('mouseenter', handlePointerEnter);
+    boundaryEventTarget.removeEventListener('mouseleave', handlePointerLeave);
+    window.removeEventListener('blur', handlePointerLeave);
     if (typeof unsubscribe === 'function') {
       unsubscribe();
     }
@@ -197,6 +209,7 @@ function initStealthCursor({
       cursorEl.parentNode.removeChild(cursorEl);
     }
     document.documentElement.classList.remove('stealth-cursor-mode');
+    document.body?.style?.removeProperty?.('cursor');
   }
 
   return {

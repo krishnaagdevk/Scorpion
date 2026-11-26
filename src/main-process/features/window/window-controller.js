@@ -26,6 +26,8 @@ function createWindowController({
   let isVisible = true;
   let autoHideTimer = null;
   let isRecoveryReloadInProgress = false;
+  let allWindowsHidden = false;
+  let savedWindowStates = { main: null, companions: [] };
   let lastRecoveryReloadAt = 0;
   let activeWindowOpacityLevel = DEFAULT_WINDOW_OPACITY_LEVEL;
   let clickThroughEnabled = false;
@@ -204,6 +206,9 @@ function createWindowController({
       isRecoveryReloadInProgress = false;
       try {
         if (mainWindow && !mainWindow.isDestroyed()) {
+          if (typeof mainWindow.setIgnoreMouseEvents === 'function') {
+            mainWindow.setIgnoreMouseEvents(clickThroughEnabled, { forward: true });
+          }
           mainWindow.webContents.send('set-pointer-visibility', {
             mode: pointerMode,
             isStealth: pointerMode === 'stealth',
@@ -355,6 +360,93 @@ function createWindowController({
     }
 
     return { success: true, isPanicActive: true };
+  }
+
+  function toggleAllWindowsVisibility() {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { success: false, error: 'Main window not available' };
+    }
+
+    const companionWindows = getCompanionWindows();
+
+    if (!allWindowsHidden) {
+      savedWindowStates = {
+        main: {
+          wasVisible: typeof mainWindow.isVisible === 'function' ? mainWindow.isVisible() : true,
+          bounds: typeof mainWindow.getBounds === 'function' ? mainWindow.getBounds() : null
+        },
+        companions: companionWindows.map((win) => ({
+          win,
+          wasVisible: typeof win.isVisible === 'function' ? win.isVisible() : false,
+          bounds: typeof win.getBounds === 'function' ? win.getBounds() : null
+        }))
+      };
+
+      if (typeof mainWindow.hide === 'function') {
+        mainWindow.hide();
+      } else {
+        mainWindow.setOpacity(0);
+      }
+
+      for (const entry of savedWindowStates.companions) {
+        try {
+          if (entry.wasVisible) {
+            if (typeof entry.win.hide === 'function') {
+              entry.win.hide();
+            } else {
+              entry.win.setOpacity(0);
+            }
+          }
+        } catch (err) {}
+      }
+
+      allWindowsHidden = true;
+      isVisible = false;
+      sendToRenderer('set-all-windows-hidden', true);
+      return { success: true, hidden: true };
+    }
+
+    // Restore all windows to their exact previous visibility, bounds, opacity, and mouse state
+    if (savedWindowStates.main?.wasVisible !== false) {
+      if (savedWindowStates.main?.bounds && typeof mainWindow.setBounds === 'function') {
+        try {
+          mainWindow.setBounds(savedWindowStates.main.bounds, false);
+        } catch (err) {}
+      }
+      if (typeof mainWindow.showInactive === 'function') {
+        mainWindow.showInactive();
+      }
+      if (typeof mainWindow.setIgnoreMouseEvents === 'function') {
+        try {
+          mainWindow.setIgnoreMouseEvents(clickThroughEnabled, { forward: true });
+        } catch (err) {}
+      }
+    }
+
+    for (const entry of savedWindowStates.companions) {
+      try {
+        if (!entry.win || entry.win.isDestroyed() || !entry.wasVisible) continue;
+        if (entry.bounds && typeof entry.win.setBounds === 'function') {
+          entry.win.setBounds(entry.bounds, false);
+        }
+        if (typeof entry.win.showInactive === 'function') {
+          entry.win.showInactive();
+        }
+        if (typeof entry.win.setIgnoreMouseEvents === 'function') {
+          entry.win.setIgnoreMouseEvents(clickThroughEnabled, { forward: true });
+        }
+      } catch (err) {}
+    }
+
+    allWindowsHidden = false;
+    isVisible = true;
+    applyWindowOpacity();
+    sendToRenderer('set-all-windows-hidden', false);
+    return { success: true, hidden: false };
+  }
+
+  function areAllWindowsHidden() {
+    return allWindowsHidden;
   }
 
   function isPanicModeActive() {
@@ -585,6 +677,10 @@ function createWindowController({
       emergencyHide();
     });
 
+    registerShortcut('toggleAllWindows', () => {
+      toggleAllWindowsVisibility();
+    });
+
     registerShortcut('toggleTranscription', () => {
       if (typeof emitSttDebug === 'function') {
         emitSttDebug({
@@ -699,6 +795,7 @@ function createWindowController({
 
   return {
     applyWindowOpacity,
+    areAllWindowsHidden,
     clampWindowOpacityLevel,
     createWindow,
     destroyWindow,
@@ -720,6 +817,7 @@ function createWindowController({
     setWindowSizePreset,
     setWindowBounds,
     setWindowOpacityLevel,
+    toggleAllWindowsVisibility,
     toggleClickThrough,
     togglePanicMode: emergencyHide,
     togglePointerVisibility,

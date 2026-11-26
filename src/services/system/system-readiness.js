@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const os = require('os');
-const { getDefaultAntigravityModel } = require('../../config');
+const { getDefaultAntigravityModel, getDefaultOpenCodeModel } = require('../../config');
+const { resolveOpenCodeCommand, isCmdWrapper } = require('../ai/opencode-installer');
 
 function resolveAgyCommand() {
   if (process.platform === 'win32') {
@@ -43,11 +44,50 @@ async function checkAntigravityCli() {
         name: 'Antigravity AI Engine (agy.exe)',
         status: 'pass',
         summary: `Connected (${version})`,
-        details: `Binary located at "${agyCmd}". Ready to serve ultra-fast offline responses via local Gemini model: ${defaultModel}.`,
+        details: `Binary located at "${agyCmd}". Ready to serve ultra-fast responses via Antigravity model: ${defaultModel || 'auto'}.`,
         model: defaultModel,
         path: agyCmd
       });
     });
+  });
+}
+
+async function checkOpenCodeCli() {
+  const opencodeCmd = resolveOpenCodeCommand();
+  const exists = fs.existsSync(opencodeCmd);
+
+  return new Promise((resolve) => {
+    execFile(
+      opencodeCmd,
+      ['--version'],
+      { shell: isCmdWrapper(opencodeCmd), windowsHide: true, timeout: 5000 },
+      (error, stdout, stderr) => {
+        if (error && !exists) {
+          resolve({
+            id: 'opencode',
+            name: 'OpenCode CLI Engine (opencode)',
+            status: 'warn',
+            summary: 'Not installed (Auto-install ready)',
+            details: 'OpenCode CLI will be automatically downloaded and configured in the background when selected or on startup.',
+            fix: 'Select OpenCode in Settings to trigger automatic installation.'
+          });
+          return;
+        }
+
+        const version = (stdout || stderr || '').trim().split('\n')[0] || 'Available';
+        const defaultModel = getDefaultOpenCodeModel();
+
+        resolve({
+          id: 'opencode',
+          name: 'OpenCode CLI Engine (opencode)',
+          status: 'pass',
+          summary: `Connected (${version})`,
+          details: `Binary located at "${opencodeCmd}".${defaultModel ? ` Default free model: ${defaultModel}.` : ''}`,
+          model: defaultModel,
+          path: opencodeCmd
+        });
+      }
+    );
   });
 }
 
@@ -151,15 +191,16 @@ async function checkWorkspaceCache(app) {
 }
 
 async function runAllReadinessChecks(app, appState = {}) {
-  const [antigravity, screenProtection, audio, stt, workspace] = await Promise.all([
+  const [antigravity, opencode, screenProtection, audio, stt, workspace] = await Promise.all([
     checkAntigravityCli(),
+    checkOpenCodeCli(),
     checkScreenProtection(),
     checkAudioSystem(),
     checkSttEngine(appState),
     checkWorkspaceCache(app)
   ]);
 
-  const checks = [antigravity, screenProtection, audio, stt, workspace];
+  const checks = [antigravity, opencode, screenProtection, audio, stt, workspace];
   const allPassed = checks.every((c) => c.status === 'pass' || c.status === 'warn');
   const hasCriticalFailure = checks.some((c) => c.status === 'fail');
 

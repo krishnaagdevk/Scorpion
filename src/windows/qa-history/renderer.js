@@ -385,7 +385,6 @@ function renderCard(item, index) {
           <span class="ai-sparkle-icon">💡</span>
           <span>TELEPROMPTER AI ANSWER</span>
         </div>
-        <span class="model-name-chip">gemini-3.8-flash-low</span>
       </div>
       <div class="answer-content-body" id="answer-content-${item.id}">
         ${formatAnswerContent(item.answer, item.status)}
@@ -526,7 +525,7 @@ function exportSessionAsMarkdown() {
   let md = `# Open-Cluely Interview Q&A Session Report\n\n`;
   md += `**Date:** ${dateStr} at ${timeStr}  \n`;
   md += `**Total Questions Answered:** ${allItems.length}  \n`;
-  md += `**AI Engine:** gemini-3.8-flash-low / Antigravity CLI  \n\n`;
+  md += `**AI Engine:** Antigravity CLI  \n\n`;
   md += `---\n\n`;
 
   allItems.forEach((item, idx) => {

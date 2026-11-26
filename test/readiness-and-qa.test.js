@@ -13,10 +13,11 @@ test('runAllReadinessChecks returns complete diagnostic check suite', async () =
   const result = await runAllReadinessChecks(null, mockAppState);
   assert.equal(result.success, true);
   assert.ok(Array.isArray(result.checks), 'checks should be an array');
-  assert.equal(result.checks.length, 5, 'should have 5 core readiness checks');
+  assert.equal(result.checks.length, 6, 'should have 6 core readiness checks');
 
   const checkIds = result.checks.map(c => c.id);
   assert.ok(checkIds.includes('antigravity'), 'must check antigravity');
+  assert.ok(checkIds.includes('opencode'), 'must check opencode');
   assert.ok(checkIds.includes('screenProtection'), 'must check screenProtection');
   assert.ok(checkIds.includes('audio'), 'must check audio');
   assert.ok(checkIds.includes('stt'), 'must check stt');
@@ -164,6 +165,31 @@ test('windowController synchronizes opacity and emergency hide to companion wind
   assert.equal(dockRes.y, 16);
   assert.equal(dockRes.x, Math.floor((1920 - 800) / 2));
   assert.equal(mainWindowPos.y, 16);
+
+  // Test toggleAllWindowsVisibility (hide all windows & restore)
+  let mainHidden = false;
+  let companionHidden = false;
+  mockMainWindow.hide = () => { mainHidden = true; };
+  mockMainWindow.showInactive = () => { mainHidden = false; };
+  mockMainWindow.setBounds = () => {};
+  mockCompanionWindow.hide = () => { companionHidden = true; };
+  mockCompanionWindow.showInactive = () => { companionHidden = false; };
+  mockCompanionWindow.getBounds = () => ({ x: 10, y: 10, width: 400, height: 300 });
+  mockCompanionWindow.setBounds = () => {};
+
+  const hideAllRes = controller.toggleAllWindowsVisibility();
+  assert.equal(hideAllRes.success, true);
+  assert.equal(hideAllRes.hidden, true);
+  assert.equal(controller.areAllWindowsHidden(), true);
+  assert.equal(mainHidden, true);
+  assert.equal(companionHidden, true);
+
+  const restoreAllRes = controller.toggleAllWindowsVisibility();
+  assert.equal(restoreAllRes.success, true);
+  assert.equal(restoreAllRes.hidden, false);
+  assert.equal(controller.areAllWindowsHidden(), false);
+  assert.equal(mainHidden, false);
+  assert.equal(companionHidden, false);
 });
 
 test('stealth window resize calculation enforces minimum bounds and direction vectors', () => {

@@ -273,6 +273,7 @@
             <label class="settings-label">AI Provider</label>
             <select id="setting-ai-provider" class="settings-input">
               <option value="antigravity">Antigravity (agy CLI - No API key needed)</option>
+              <option value="opencode">OpenCode (opencode CLI - Free models)</option>
               <option value="codex">OpenAI Codex CLI</option>
               <option value="claude-code">Claude Code CLI</option>
               <option value="gemini">Gemini (API Key)</option>
@@ -322,12 +323,40 @@
           <div id="antigravity-settings-group" class="hidden">
             <div class="settings-group">
               <label class="settings-label">Antigravity Model</label>
-              <select id="setting-antigravity-model" class="settings-input"></select>
-              <div class="settings-helper-text">Select which model to use via your local Antigravity subscription.</div>
+              <div class="settings-input-row">
+                <select id="setting-antigravity-model" class="settings-input"></select>
+                <button type="button" id="refresh-antigravity-models" class="settings-input-toggle" aria-label="Refresh available Antigravity models">
+                  Refresh
+                </button>
+              </div>
+              <div class="settings-helper-text">Dynamically discovered from your local Antigravity CLI.</div>
             </div>
             <div class="settings-group">
               <div class="settings-helper-text" style="color: #48bb78; font-weight: 500;">
                 &#x2705; Connected to Antigravity CLI (agy) on this machine. Runs silently in the background with zero API key required.
+              </div>
+            </div>
+          </div>
+          <div id="opencode-settings-group" class="hidden">
+            <div class="settings-group">
+              <label class="settings-label">OpenCode Model</label>
+              <div class="settings-input-row">
+                <select id="setting-opencode-model" class="settings-input"></select>
+                <button type="button" id="sync-opencode-models" class="settings-input-toggle" aria-label="Sync OpenCode CLI and models">
+                  Sync
+                </button>
+              </div>
+              <div class="settings-helper-text" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;">
+                <span>Free OpenCode models are auto-detected and prioritized.</span>
+                <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+                  <input type="checkbox" id="opencode-free-only-toggle" checked />
+                  <span>Free only</span>
+                </label>
+              </div>
+            </div>
+            <div class="settings-group">
+              <div id="opencode-setup-status" class="settings-helper-text" style="color: #94a3b8; font-weight: 500;">
+                OpenCode CLI is checked and configured automatically.
               </div>
             </div>
           </div>

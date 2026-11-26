@@ -28,6 +28,10 @@ function registerAssistantIpc({
       return 'Antigravity CLI (agy) not found or failed. Ensure agy is installed and in PATH.';
     }
 
+    if (normalizedMessage.includes('opencode')) {
+      return 'OpenCode CLI (opencode) not found or failed. Ensure opencode is installed or re-sync in Settings.';
+    }
+
     if (normalizedMessage.includes('cli agent') || normalizedMessage.includes('not found on path')) {
       return 'CLI agent not found. Ensure the CLI is installed and in PATH.';
     }

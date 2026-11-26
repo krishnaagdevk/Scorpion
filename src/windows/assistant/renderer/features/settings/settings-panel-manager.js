@@ -9,6 +9,12 @@ export function createSettingsPanelManager({
     ollamaSettingsGroup,
     antigravitySettingsGroup,
     settingAntigravityModel,
+    refreshAntigravityModelsBtn,
+    opencodeSettingsGroup,
+    settingOpencodeModel,
+    syncOpencodeModelsBtn,
+    opencodeFreeOnlyToggle,
+    opencodeSetupStatus,
     cliAgentSettingsGroup,
     settingCliAgentType,
     settingCliAgentCmd,
@@ -78,10 +84,14 @@ export function createSettingsPanelManager({
         });
     }
 
+    let cachedOpenCodeEntries = [];
+    let selectedOpenCodeModel = '';
+
     function updateProviderVisibility(provider) {
         const isGemini = provider === 'gemini';
         const isOllama = provider === 'ollama';
         const isAntigravity = provider === 'antigravity';
+        const isOpenCode = provider === 'opencode';
         const isCliAgent = provider === 'codex' || provider === 'claude-code';
 
         if (geminiSettingsGroup) {
@@ -93,8 +103,29 @@ export function createSettingsPanelManager({
         if (antigravitySettingsGroup) {
             antigravitySettingsGroup.classList.toggle('hidden', !isAntigravity);
         }
+        if (opencodeSettingsGroup) {
+            opencodeSettingsGroup.classList.toggle('hidden', !isOpenCode);
+        }
         if (cliAgentSettingsGroup) {
             cliAgentSettingsGroup.classList.toggle('hidden', !isCliAgent);
+        }
+    }
+
+    function updateOpenCodeStatus(status) {
+        if (!opencodeSetupStatus || !status) {
+            return;
+        }
+        const stage = String(status.stage || '');
+        const message = String(status.message || '').trim();
+        if (message) {
+            opencodeSetupStatus.textContent = message;
+        }
+        if (stage === 'error') {
+            opencodeSetupStatus.style.color = '#f87171';
+        } else if (stage === 'ready') {
+            opencodeSetupStatus.style.color = '#48bb78';
+        } else {
+            opencodeSetupStatus.style.color = '#60a5fa';
         }
     }
 
@@ -104,7 +135,13 @@ export function createSettingsPanelManager({
         }
 
         settingAiProvider.addEventListener('change', () => {
-            updateProviderVisibility(settingAiProvider.value);
+            const nextProvider = settingAiProvider.value;
+            updateProviderVisibility(nextProvider);
+            if (nextProvider === 'antigravity' && settingAntigravityModel && settingAntigravityModel.options.length === 0) {
+                refreshAntigravityModels();
+            } else if (nextProvider === 'opencode' && cachedOpenCodeEntries.length === 0) {
+                syncOpenCodeModels();
+            }
         });
     }
 
@@ -204,27 +241,149 @@ export function createSettingsPanelManager({
             : configuredModels[0];
     }
 
-    function populateAntigravityModelOptions(models, selectedModel) {
+    function populateAntigravityModelOptions(modelsOrEntries, selectedModel) {
         if (!settingAntigravityModel) {
             return;
         }
 
         settingAntigravityModel.innerHTML = '';
-        const configuredModels = Array.isArray(models) ? models : [];
-        if (configuredModels.length === 0) {
+        const items = Array.isArray(modelsOrEntries) ? modelsOrEntries : [];
+        if (items.length === 0) {
+            const placeholder = document.createElement('option');
+            placeholder.value = selectedModel || '';
+            placeholder.textContent = selectedModel || 'No models discovered (click Refresh)';
+            settingAntigravityModel.appendChild(placeholder);
             return;
         }
 
-        configuredModels.forEach((modelName) => {
+        const ids = [];
+        items.forEach((entry) => {
+            const id = typeof entry === 'string' ? entry : String(entry?.id || '').trim();
+            const label = typeof entry === 'string' ? entry : String(entry?.name || id).trim();
+            if (!id) return;
+            ids.push(id);
             const option = document.createElement('option');
-            option.value = modelName;
-            option.textContent = modelName;
+            option.value = id;
+            option.textContent = label;
             settingAntigravityModel.appendChild(option);
         });
 
-        settingAntigravityModel.value = configuredModels.includes(selectedModel)
-            ? selectedModel
-            : configuredModels[0];
+        if (ids.length > 0) {
+            settingAntigravityModel.value = ids.includes(selectedModel)
+                ? selectedModel
+                : ids[0];
+        }
+    }
+
+    function populateOpenCodeModelOptions(entries, selectedModel) {
+        if (!settingOpencodeModel) {
+            return;
+        }
+
+        const list = Array.isArray(entries) ? entries : [];
+        cachedOpenCodeEntries = list;
+        if (selectedModel) {
+            selectedOpenCodeModel = selectedModel;
+        }
+
+        settingOpencodeModel.innerHTML = '';
+        const freeOnly = Boolean(opencodeFreeOnlyToggle?.checked);
+        const freeEntries = list.filter((e) => e.isFree);
+        const visible = (freeOnly && freeEntries.length > 0) ? freeEntries : list;
+
+        if (visible.length === 0) {
+            const placeholder = document.createElement('option');
+            placeholder.value = selectedOpenCodeModel || '';
+            placeholder.textContent = selectedOpenCodeModel || 'Syncing OpenCode models...';
+            settingOpencodeModel.appendChild(placeholder);
+            return;
+        }
+
+        const ids = [];
+        visible.forEach((entry) => {
+            const id = String(entry?.id || '').trim();
+            if (!id) return;
+            ids.push(id);
+            const option = document.createElement('option');
+            option.value = id;
+            const baseLabel = String(entry?.name || id).trim();
+            option.textContent = entry?.isFree ? `${baseLabel} [Free]` : baseLabel;
+            settingOpencodeModel.appendChild(option);
+        });
+
+        if (ids.length > 0) {
+            settingOpencodeModel.value = ids.includes(selectedOpenCodeModel)
+                ? selectedOpenCodeModel
+                : ids[0];
+        }
+    }
+
+    async function refreshAntigravityModels() {
+        if (!window.electronAPI?.refreshAntigravityModels) {
+            return;
+        }
+        try {
+            if (refreshAntigravityModelsBtn) {
+                refreshAntigravityModelsBtn.textContent = '...';
+                refreshAntigravityModelsBtn.disabled = true;
+            }
+            const res = await window.electronAPI.refreshAntigravityModels();
+            if (res?.success) {
+                const entries = (res.entries && res.entries.length > 0) ? res.entries : res.models;
+                populateAntigravityModelOptions(
+                    entries,
+                    settingAntigravityModel?.value || res.activeModel || res.defaultModel
+                );
+                if (res.models?.length > 0) {
+                    showFeedback?.(`Discovered ${res.models.length} Antigravity model(s).`, 'success');
+                } else {
+                    showFeedback?.('No Antigravity models found. Is agy CLI signed in?', 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to refresh Antigravity models:', error);
+        } finally {
+            if (refreshAntigravityModelsBtn) {
+                refreshAntigravityModelsBtn.textContent = 'Refresh';
+                refreshAntigravityModelsBtn.disabled = false;
+            }
+        }
+    }
+
+    async function syncOpenCodeModels() {
+        if (!window.electronAPI?.ensureOpenCodeReady) {
+            return;
+        }
+        try {
+            if (syncOpencodeModelsBtn) {
+                syncOpencodeModelsBtn.textContent = '...';
+                syncOpencodeModelsBtn.disabled = true;
+            }
+            updateOpenCodeStatus({ stage: 'checking', message: 'Checking & syncing OpenCode CLI...' });
+            const res = await window.electronAPI.ensureOpenCodeReady();
+            if (res?.success) {
+                const entries = Array.isArray(res.entries) ? res.entries : [];
+                populateOpenCodeModelOptions(entries, settingOpencodeModel?.value || res.activeModel || res.defaultModel);
+                const freeCount = Array.isArray(res.freeModels) ? res.freeModels.length : 0;
+                updateOpenCodeStatus({
+                    stage: 'ready',
+                    message: `OpenCode ready (${freeCount} free / ${entries.length} total models)`
+                });
+            } else {
+                updateOpenCodeStatus({
+                    stage: 'error',
+                    message: res?.error || 'OpenCode setup failed.'
+                });
+            }
+        } catch (error) {
+            console.error('Failed to sync OpenCode:', error);
+            updateOpenCodeStatus({ stage: 'error', message: error.message });
+        } finally {
+            if (syncOpencodeModelsBtn) {
+                syncOpencodeModelsBtn.textContent = 'Sync';
+                syncOpencodeModelsBtn.disabled = false;
+            }
+        }
     }
 
     function populateProgrammingLanguageOptions(languages, selectedLanguage) {
@@ -297,7 +456,31 @@ export function createSettingsPanelManager({
                 populateGeminiModelOptions(settings.geminiModels, settings.geminiModel || settings.defaultGeminiModel);
 
                 // Antigravity settings
-                populateAntigravityModelOptions(settings.antigravityModels, settings.antigravityModel || settings.defaultAntigravityModel);
+                const agEntries = (Array.isArray(settings.antigravityModelEntries) && settings.antigravityModelEntries.length > 0)
+                    ? settings.antigravityModelEntries
+                    : settings.antigravityModels;
+                populateAntigravityModelOptions(agEntries, settings.antigravityModel || settings.defaultAntigravityModel);
+
+                // OpenCode settings
+                const ocEntries = Array.isArray(settings.opencodeModelEntries) ? settings.opencodeModelEntries : [];
+                populateOpenCodeModelOptions(ocEntries, settings.opencodeModel || settings.defaultOpenCodeModel);
+                if (settings.opencodeInstalled && ocEntries.length > 0) {
+                    const freeCount = Array.isArray(settings.freeOpenCodeModels) ? settings.freeOpenCodeModels.length : 0;
+                    updateOpenCodeStatus({
+                        stage: 'ready',
+                        message: `OpenCode CLI connected (${freeCount} free / ${ocEntries.length} total models)`
+                    });
+                } else if (settings.opencodeInstalled) {
+                    updateOpenCodeStatus({
+                        stage: 'configuring',
+                        message: 'OpenCode CLI installed. Click Sync to refresh models.'
+                    });
+                } else {
+                    updateOpenCodeStatus({
+                        stage: 'checking',
+                        message: 'OpenCode CLI will auto-install when selected or synced.'
+                    });
+                }
 
                 // Ollama settings
                 if (settingOllamaBaseUrl) settingOllamaBaseUrl.value = settings.ollamaBaseUrl || 'http://localhost:11434';
@@ -375,6 +558,7 @@ export function createSettingsPanelManager({
                 assemblyAiApiKey: settingAssemblyKey ? settingAssemblyKey.value.trim() : '',
                 geminiModel: settingGeminiModel ? settingGeminiModel.value : '',
                 antigravityModel: settingAntigravityModel ? settingAntigravityModel.value : '',
+                opencodeModel: settingOpencodeModel ? settingOpencodeModel.value : '',
                 ollamaBaseUrl: settingOllamaBaseUrl ? settingOllamaBaseUrl.value.trim() : '',
                 ollamaModel: settingOllamaModel ? settingOllamaModel.value.trim() : '',
                 cliAgentType: settingCliAgentType ? settingCliAgentType.value : 'codex',
@@ -409,6 +593,24 @@ export function createSettingsPanelManager({
     bindProviderToggle();
     bindFetchOllamaModels();
 
+    if (refreshAntigravityModelsBtn) {
+        refreshAntigravityModelsBtn.addEventListener('click', () => {
+            refreshAntigravityModels();
+        });
+    }
+
+    if (syncOpencodeModelsBtn) {
+        syncOpencodeModelsBtn.addEventListener('click', () => {
+            syncOpenCodeModels();
+        });
+    }
+
+    if (opencodeFreeOnlyToggle) {
+        opencodeFreeOnlyToggle.addEventListener('change', () => {
+            populateOpenCodeModelOptions(cachedOpenCodeEntries, settingOpencodeModel?.value || selectedOpenCodeModel);
+        });
+    }
+
     if (settingCliAgentType) {
         settingCliAgentType.addEventListener('change', () => {
             if (cliAgentCustomGroup) {
@@ -420,6 +622,7 @@ export function createSettingsPanelManager({
     return {
         normalizeWindowOpacityLevel,
         updateWindowOpacityValueLabel,
+        updateOpenCodeStatus,
         openSettings,
         closeSettings,
         saveSettings

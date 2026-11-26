@@ -1,18 +1,15 @@
 // AI provider configuration.
-// Supported providers: 'gemini', 'ollama', 'antigravity', 'codex', 'claude-code'.
-const AI_PROVIDERS = ['gemini', 'ollama', 'antigravity', 'codex', 'claude-code'];
+// Supported providers: 'gemini', 'ollama', 'antigravity', 'opencode', 'codex', 'claude-code'.
+const AI_PROVIDERS = ['gemini', 'ollama', 'antigravity', 'opencode', 'codex', 'claude-code'];
 const DEFAULT_AI_PROVIDER = 'antigravity';
 
-// Antigravity model configuration.
-const ANTIGRAVITY_MODELS = [
-  'gemini-3.8-flash-low',
-  'gemini-3.8-flash-high',
-  'gemini-3.8-flash-medium',
-  'claude-sonnet-4-6',
-  'claude-opus-4-6-thinking',
-  'gpt-oss-120b-medium'
-];
-const DEFAULT_ANTIGRAVITY_MODEL = 'gemini-3.8-flash-low';
+// Dynamic Antigravity model cache (populated at runtime via `agy models`).
+// Each entry is { id: string, name: string }.
+let discoveredAntigravityModels = [];
+
+// Dynamic OpenCode model cache (populated at runtime via `opencode models`).
+// Each entry is { id: string, name: string, provider: string, isFree: boolean }.
+let discoveredOpenCodeModels = [];
 
 const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 const DEFAULT_OLLAMA_MODEL = 'llama3.2';
@@ -109,6 +106,12 @@ const KEYBOARD_SHORTCUTS = [
     buttonLabel: 'Hide',
     description: 'Emergency hide',
     accelerator: 'Alt+Shift+X'
+  },
+  {
+    id: 'toggleAllWindows',
+    buttonLabel: 'Hide / Restore All',
+    description: 'Hide all windows to view the main screen, or restore them to their previous state',
+    accelerator: 'Alt+Shift+V'
   },
   {
     id: 'toggleStealth',
@@ -209,21 +212,139 @@ function getDefaultOllamaModel() {
   return DEFAULT_OLLAMA_MODEL;
 }
 
-// Antigravity model configuration functions
+// Antigravity model configuration functions (dynamic discovery)
+function normalizeDiscoveredModels(models) {
+  if (!Array.isArray(models)) {
+    return [];
+  }
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of models) {
+    const id = typeof entry === 'string' ? entry.trim() : String(entry?.id || '').trim();
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    const name = typeof entry === 'string' ? id : String(entry?.name || id).trim();
+    normalized.push({ id, name });
+  }
+  return normalized;
+}
+
+function setDiscoveredAntigravityModels(models) {
+  discoveredAntigravityModels = normalizeDiscoveredModels(models);
+  return getAntigravityModels();
+}
+
+function getAntigravityModelEntries() {
+  return discoveredAntigravityModels.map((entry) => ({ ...entry }));
+}
+
 function getAntigravityModels() {
-  return [...ANTIGRAVITY_MODELS];
+  return discoveredAntigravityModels.map((entry) => entry.id);
 }
 
 function getDefaultAntigravityModel() {
-  return DEFAULT_ANTIGRAVITY_MODEL;
+  return discoveredAntigravityModels[0]?.id || '';
 }
 
 function isConfiguredAntigravityModel(modelName) {
-  return ANTIGRAVITY_MODELS.includes(modelName);
+  const normalized = String(modelName || '').trim();
+  if (!normalized) {
+    return false;
+  }
+  if (discoveredAntigravityModels.length === 0) {
+    return true;
+  }
+  return discoveredAntigravityModels.some((entry) => entry.id === normalized);
 }
 
 function resolveAntigravityModel(modelName) {
-  return isConfiguredAntigravityModel(modelName) ? modelName : DEFAULT_ANTIGRAVITY_MODEL;
+  const normalized = String(modelName || '').trim();
+  if (!normalized) {
+    return getDefaultAntigravityModel();
+  }
+  if (discoveredAntigravityModels.length === 0) {
+    return normalized;
+  }
+  return isConfiguredAntigravityModel(normalized) ? normalized : getDefaultAntigravityModel();
+}
+
+// OpenCode model configuration functions (dynamic discovery + free model detection)
+function normalizeDiscoveredOpenCodeModels(models) {
+  if (!Array.isArray(models)) {
+    return [];
+  }
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of models) {
+    const id = typeof entry === 'string' ? entry.trim() : String(entry?.id || '').trim();
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    const name = typeof entry === 'string' ? id : String(entry?.name || id).trim();
+    const provider = typeof entry === 'object' && entry?.provider
+      ? String(entry.provider).trim()
+      : (id.includes('/') ? id.split('/')[0] : 'opencode');
+    const isFree = typeof entry === 'object' && typeof entry?.isFree === 'boolean'
+      ? entry.isFree
+      : (id.startsWith('opencode/') || /(?:^|[-/:])free$/i.test(id));
+    normalized.push({ id, name, provider, isFree });
+  }
+  // Sort free models first so free models are prioritized by default
+  normalized.sort((a, b) => {
+    if (a.isFree !== b.isFree) return a.isFree ? -1 : 1;
+    const aOpenCode = a.provider === 'opencode' ? 0 : 1;
+    const bOpenCode = b.provider === 'opencode' ? 0 : 1;
+    if (aOpenCode !== bOpenCode) return aOpenCode - bOpenCode;
+    return a.id.localeCompare(b.id);
+  });
+  return normalized;
+}
+
+function setDiscoveredOpenCodeModels(models) {
+  discoveredOpenCodeModels = normalizeDiscoveredOpenCodeModels(models);
+  return getOpenCodeModels();
+}
+
+function getOpenCodeModelEntries() {
+  return discoveredOpenCodeModels.map((entry) => ({ ...entry }));
+}
+
+function getOpenCodeModels() {
+  return discoveredOpenCodeModels.map((entry) => entry.id);
+}
+
+function getFreeOpenCodeModels() {
+  return discoveredOpenCodeModels.filter((entry) => entry.isFree).map((entry) => entry.id);
+}
+
+function getDefaultOpenCodeModel() {
+  const free = discoveredOpenCodeModels.find((entry) => entry.isFree);
+  return free?.id || discoveredOpenCodeModels[0]?.id || '';
+}
+
+function isConfiguredOpenCodeModel(modelName) {
+  const normalized = String(modelName || '').trim();
+  if (!normalized) {
+    return false;
+  }
+  if (discoveredOpenCodeModels.length === 0) {
+    return true;
+  }
+  return discoveredOpenCodeModels.some((entry) => entry.id === normalized);
+}
+
+function resolveOpenCodeModel(modelName) {
+  const normalized = String(modelName || '').trim();
+  if (!normalized) {
+    return getDefaultOpenCodeModel();
+  }
+  if (discoveredOpenCodeModels.length === 0) {
+    return normalized;
+  }
+  return isConfiguredOpenCodeModel(normalized) ? normalized : getDefaultOpenCodeModel();
 }
 
 // Gemini model configuration functions
@@ -367,7 +488,17 @@ module.exports = {
   resolveProgrammingLanguage,
   getCliAgentTypes,
   getDefaultCliAgentType,
+  setDiscoveredAntigravityModels,
+  getAntigravityModelEntries,
   getAntigravityModels,
   getDefaultAntigravityModel,
-  resolveAntigravityModel
+  isConfiguredAntigravityModel,
+  resolveAntigravityModel,
+  setDiscoveredOpenCodeModels,
+  getOpenCodeModelEntries,
+  getOpenCodeModels,
+  getFreeOpenCodeModels,
+  getDefaultOpenCodeModel,
+  isConfiguredOpenCodeModel,
+  resolveOpenCodeModel
 };

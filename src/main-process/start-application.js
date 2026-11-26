@@ -39,6 +39,7 @@ const { logStartupConfiguration } = require('./startup-logging');
 const { createMobileServer } = require('./features/mobile-server/server');
 const { createQaManager } = require('./features/qa-history/qa-manager');
 const { runAllReadinessChecks } = require('../services/system/system-readiness');
+const { ensureOpenCodeReady } = require('../services/ai/opencode-installer');
 
 function resolveStartupOptions(argv = process.argv) {
   const normalizedArgs = Array.isArray(argv)
@@ -146,6 +147,7 @@ async function startApplication() {
     );
     const activeGeminiModel = geminiRuntime.setActiveGeminiModel(appState.geminiModel);
     const activeAntigravityModel = geminiRuntime.setActiveAntigravityModel?.(appState.antigravityModel);
+    const activeOpenCodeModel = geminiRuntime.setActiveOpenCodeModel?.(appState.opencodeModel);
     const activeOllamaBaseUrl = geminiRuntime.setActiveOllamaBaseUrl(appState.ollamaBaseUrl);
     const activeOllamaModel = geminiRuntime.setActiveOllamaModel(appState.ollamaModel);
     const activeCliAgentType = geminiRuntime.setActiveCliAgentType?.(appState.cliAgentType) || 'codex';
@@ -159,6 +161,7 @@ async function startApplication() {
       appState.geminiApiKeyIndex !== keyState.activeApiKeyIndex ||
       appState.geminiModel !== activeGeminiModel ||
       appState.antigravityModel !== activeAntigravityModel ||
+      appState.opencodeModel !== activeOpenCodeModel ||
       appState.ollamaBaseUrl !== activeOllamaBaseUrl ||
       appState.ollamaModel !== activeOllamaModel ||
       appState.cliAgentType !== activeCliAgentType ||
@@ -172,6 +175,7 @@ async function startApplication() {
         geminiApiKeyIndex: keyState.activeApiKeyIndex,
         geminiModel: activeGeminiModel,
         antigravityModel: activeAntigravityModel,
+        opencodeModel: activeOpenCodeModel,
         ollamaBaseUrl: activeOllamaBaseUrl,
         ollamaModel: activeOllamaModel,
         cliAgentType: activeCliAgentType,
@@ -273,7 +277,8 @@ async function startApplication() {
     },
     keyboardShortcuts,
     assemblyAiSpeechModels,
-    defaultAssemblyAiSpeechModel
+    defaultAssemblyAiSpeechModel,
+    sendToRenderer
   });
 
   app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder');
@@ -336,6 +341,11 @@ async function startApplication() {
         geminiRuntime.getActiveProgrammingLanguage(),
         geminiRuntime.getActiveAntigravityModel?.()
       );
+    } else if (activeProvider === 'opencode') {
+      geminiRuntime.initializeOpenCodeService(
+        geminiRuntime.getActiveProgrammingLanguage(),
+        geminiRuntime.getActiveOpenCodeModel?.()
+      );
     } else if (activeProvider === 'codex' || activeProvider === 'claude-code') {
       geminiRuntime.initializeCliAgentService(
         geminiRuntime.getActiveCliAgentType() || activeProvider,
@@ -365,6 +375,32 @@ async function startApplication() {
     }
 
     console.log(`Window setup complete (${launchHidden ? 'hidden launch' : 'visible launch'})`);
+
+    // Background model discovery & OpenCode auto-install/setup (non-blocking)
+    geminiRuntime.refreshAntigravityModels?.().then((agRes) => {
+      if (agRes?.activeModel && appState && !appState.antigravityModel) {
+        appState = saveAppState(app, { antigravityModel: agRes.activeModel });
+      }
+    }).catch((err) => {
+      console.warn('[Startup] Antigravity model discovery notice:', err.message);
+    });
+
+    ensureOpenCodeReady({
+      onProgress: (status) => sendToRenderer('opencode-setup-status', status),
+      syncModelsFn: () => geminiRuntime.refreshOpenCodeModels?.()
+    }).then((ocRes) => {
+      if (ocRes?.success) {
+        const resolvedModel = geminiRuntime.getActiveOpenCodeModel?.() || geminiRuntime.getDefaultOpenCodeModel?.();
+        if (resolvedModel && appState && !appState.opencodeModel) {
+          appState = saveAppState(app, { opencodeModel: resolvedModel });
+        }
+        if (geminiRuntime.getActiveAiProvider() === 'opencode' && resolvedModel) {
+          geminiRuntime.initializeOpenCodeService(geminiRuntime.getActiveProgrammingLanguage(), resolvedModel);
+        }
+      }
+    }).catch((err) => {
+      console.warn('[Startup] OpenCode auto-setup notice:', err.message);
+    });
   });
 
   app.on('window-all-closed', () => {

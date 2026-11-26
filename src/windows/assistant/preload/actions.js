@@ -202,6 +202,18 @@ function createInvokeActions(ipcRenderer) {
       fallback: (error) => ({ success: false, error: error.message })
     }),
 
+    refreshAntigravityModels: invokeWithFallback(ipcRenderer, {
+      channel: 'refresh-antigravity-models',
+      label: 'refreshAntigravityModels',
+      fallback: (error) => ({ success: false, error: error.message, models: [], entries: [] })
+    }),
+
+    ensureOpenCodeReady: invokeWithFallback(ipcRenderer, {
+      channel: 'ensure-opencode-ready',
+      label: 'ensureOpenCodeReady',
+      fallback: (error) => ({ success: false, error: error.message, entries: [], freeModels: [] })
+    }),
+
     setThemePreference: invokeWithFallback(ipcRenderer, {
       channel: 'set-theme-preference',
       label: 'setThemePreference',

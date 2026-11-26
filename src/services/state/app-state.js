@@ -7,7 +7,8 @@ const APP_STATE_FILE_NAME = 'app-state.json';
 function getDefaultAppState() {
   return {
     aiProvider: 'antigravity',
-    antigravityModel: 'gemini-3.8-flash-low',
+    antigravityModel: null,
+    opencodeModel: null,
     geminiApiKey: null,
     assemblyAiApiKey: null,
     geminiApiKeyIndex: 0,
@@ -33,7 +34,7 @@ function sanitizeAppState(state) {
 
   if (state && typeof state === 'object' && !Array.isArray(state)) {
     const aiProvider = String(state.aiProvider ?? '').trim().toLowerCase();
-    const VALID_AI_PROVIDERS = ['gemini', 'ollama', 'antigravity', 'codex', 'claude-code'];
+    const VALID_AI_PROVIDERS = ['gemini', 'ollama', 'antigravity', 'opencode', 'codex', 'claude-code'];
     if (VALID_AI_PROVIDERS.includes(aiProvider)) {
       nextState.aiProvider = aiProvider;
     }
@@ -59,6 +60,10 @@ function sanitizeAppState(state) {
 
     if (typeof state.antigravityModel === 'string' && state.antigravityModel.trim()) {
       nextState.antigravityModel = state.antigravityModel.trim();
+    }
+
+    if (typeof state.opencodeModel === 'string' && state.opencodeModel.trim()) {
+      nextState.opencodeModel = state.opencodeModel.trim();
     }
 
     if (typeof state.ollamaBaseUrl === 'string' && state.ollamaBaseUrl.trim()) {

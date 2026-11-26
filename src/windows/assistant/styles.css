@@ -130,10 +130,12 @@ body {
   justify-content: flex-end;
   align-items: center;
   padding-right: 8px;
+  pointer-events: none;
 }
 
 /* CLOSE & PIN BUTTONS */
 .pin-app-btn {
+  pointer-events: auto;
   -webkit-app-region: no-drag;
   width: 20px;
   height: 20px;
@@ -165,6 +167,7 @@ body {
 }
 
 .close-app-btn {
+  pointer-events: auto;
   -webkit-app-region: no-drag;
   width: 20px;
   height: 20px;
@@ -3072,7 +3075,13 @@ body.theme-dark .settings-body::-webkit-scrollbar-thumb:hover {
 
 /* STEALTH IN-DOM VIRTUAL CURSOR (100% excluded from screen capture / recording) */
 html.stealth-cursor-mode,
-html.stealth-cursor-mode * {
+html.stealth-cursor-mode body,
+html.stealth-cursor-mode body *,
+html.stealth-cursor-mode body *:hover,
+html.stealth-cursor-mode body *:active,
+html.stealth-cursor-mode body *:focus,
+html.stealth-cursor-mode body *::before,
+html.stealth-cursor-mode body *::after {
   cursor: none !important;
 }
 

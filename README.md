@@ -52,7 +52,7 @@ Powered by **Google Antigravity (Gemini 3.8 Flash Low)**, **AssemblyAI Streaming
 
 ### ⚡ 3. Antigravity CLI Integration (Zero-Key Gemini 3.8 Flash Low)
 * Seamlessly connects to your locally authenticated **Google Antigravity CLI** (`agy.exe`).
-* Provides **blazing-fast, streaming answers** using `gemini-3.8-flash-low` with **zero paid Gemini API keys required**.
+* Provides **blazing-fast, streaming answers** using `gemini` with **zero paid Gemini API keys required**.
 * Also supports OpenAI Codex, Claude Code, and fallback to direct Google Generative AI API keys.
 
 ### 🛡️ 4. 100% Screen Share Invisibility & Borderless Stealth

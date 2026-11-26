@@ -217,6 +217,12 @@ const geminiSettingsGroup = document.getElementById('gemini-settings-group');
 const ollamaSettingsGroup = document.getElementById('ollama-settings-group');
 const antigravitySettingsGroup = document.getElementById('antigravity-settings-group');
 const settingAntigravityModel = document.getElementById('setting-antigravity-model');
+const refreshAntigravityModelsBtn = document.getElementById('refresh-antigravity-models');
+const opencodeSettingsGroup = document.getElementById('opencode-settings-group');
+const settingOpencodeModel = document.getElementById('setting-opencode-model');
+const syncOpencodeModelsBtn = document.getElementById('sync-opencode-models');
+const opencodeFreeOnlyToggle = document.getElementById('opencode-free-only-toggle');
+const opencodeSetupStatus = document.getElementById('opencode-setup-status');
 const cliAgentSettingsGroup = document.getElementById('cli-agent-settings-group');
 const settingCliAgentType = document.getElementById('setting-cli-agent-type');
 const settingCliAgentCmd = document.getElementById('setting-cli-agent-cmd');
@@ -485,6 +491,12 @@ const settingsPanelManager = createSettingsPanelManager({
     ollamaSettingsGroup,
     antigravitySettingsGroup,
     settingAntigravityModel,
+    refreshAntigravityModelsBtn,
+    opencodeSettingsGroup,
+    settingOpencodeModel,
+    syncOpencodeModelsBtn,
+    opencodeFreeOnlyToggle,
+    opencodeSetupStatus,
     cliAgentSettingsGroup,
     settingCliAgentType,
     settingCliAgentCmd,
@@ -729,6 +741,23 @@ function setupStealthTooltips() {
 // Initialize
 async function init() {
     setupStealthTooltips();
+    if (window.StealthCursor?.initStealthCursor && !stealthCursorInstance) {
+        stealthCursorInstance = window.StealthCursor.initStealthCursor({
+            onModeChange: (mode) => {
+                paintPointerStealthPill(mode);
+                if (mode === 'stealth') {
+                    showFeedback('🎯 Pointer: Stealth (Visible to you, Hidden from Screen Share)', 'info');
+                } else if (mode === 'hidden') {
+                    showFeedback('🚫 Pointer: Hidden (Zero Distraction)', 'info');
+                } else if (mode === 'system') {
+                    showFeedback('🖱️ Pointer: System Standard', 'info');
+                }
+            },
+            getInitialStatus: () => window.electronAPI?.getPointerVisibilityStatus?.(),
+            toggleApi: () => window.electronAPI?.togglePointerVisibility?.(),
+            onPointerVisibilityChanged: (cb) => window.electronAPI?.onPointerVisibilityChanged?.(cb)
+        });
+    }
     console.log('Initializing renderer with Vosk Live Transcription...');
 
     if (typeof window.electronAPI !== 'undefined') {
@@ -763,6 +792,11 @@ async function init() {
             window.electronAPI.onMobileServerStatus((data) => {
                 mobileServerStatus = { ...mobileServerStatus, ...(data || {}) };
                 paintMobileServerPill();
+            });
+        }
+        if (window.electronAPI?.onOpenCodeSetupStatus) {
+            window.electronAPI.onOpenCodeSetupStatus((status) => {
+                settingsPanelManager.updateOpenCodeStatus(status);
             });
         }
         if (window.electronAPI?.getMobileServerStatus) {
@@ -807,24 +841,7 @@ async function init() {
                 await window.electronAPI.togglePointerVisibility();
             }
         });
-        paintPointerStealthPill('stealth');
-    }
-    if (window.StealthCursor?.initStealthCursor) {
-        stealthCursorInstance = window.StealthCursor.initStealthCursor({
-            onModeChange: (mode) => {
-                paintPointerStealthPill(mode);
-                if (mode === 'stealth') {
-                    showFeedback('🎯 Pointer: Stealth (Visible to you, Hidden from Screen Share)', 'info');
-                } else if (mode === 'hidden') {
-                    showFeedback('🚫 Pointer: Hidden (Zero Distraction)', 'info');
-                } else if (mode === 'system') {
-                    showFeedback('🖱️ Pointer: System Standard', 'info');
-                }
-            },
-            getInitialStatus: () => window.electronAPI?.getPointerVisibilityStatus?.(),
-            toggleApi: () => window.electronAPI?.togglePointerVisibility?.(),
-            onPointerVisibilityChanged: (cb) => window.electronAPI?.onPointerVisibilityChanged?.(cb)
-        });
+        paintPointerStealthPill(stealthCursorInstance ? stealthCursorInstance.getMode() : 'stealth');
     }
     if (window.electronAPI?.onClickThroughModeChanged) {
         window.electronAPI.onClickThroughModeChanged((enabled) => {
@@ -1109,8 +1126,8 @@ function applyApiKeyAvailabilityFromSettings(settings) {
         return;
     }
 
-    // Local / CLI providers (Antigravity, Codex, Claude Code, Ollama) don't require API keys
-    const noKeyProviders = ['antigravity', 'codex', 'claude-code', 'ollama'];
+    // Local / CLI providers (Antigravity, OpenCode, Codex, Claude Code, Ollama) don't require API keys
+    const noKeyProviders = ['antigravity', 'opencode', 'codex', 'claude-code', 'ollama'];
     if (noKeyProviders.includes(settings.aiProvider)) {
         hasGeminiApiKeysConfigured = true;
     } else if (typeof settings.hasGeminiApiKeys === 'boolean') {
